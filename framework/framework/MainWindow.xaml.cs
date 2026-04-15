@@ -1,9 +1,18 @@
 ﻿using Microsoft.Win32; // 為了使用 OpenFileDialog
 using System;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace framework // ⚠️注意：如果你的專案名稱不同，請把這裡改成你的專案名稱
 {
+    // 定義支援的影片格式
+    public enum VideoFormat
+    {
+        MP4,
+        MKV,
+        MOV
+    }
+
     public partial class MainWindow : Window
     {
         private string currentVideoPath = "";
@@ -38,7 +47,20 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
                 MessageBox.Show("請先匯入影片！", "錯誤");
                 return;
             }
-            MessageBox.Show("準備啟動 FFmpeg 引擎...\n即將把字卡與影片進行底層合成！", "輸出準備");
+            // 如果沒選中任何項目，就預設使用 "MP4"
+            string selectedText = (ComboFormat.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "MP4";
+
+            // 2. 使用 TryParse 進行安全轉換，這能確保程式不會因為轉換失敗而當機
+            if (Enum.TryParse(selectedText, out VideoFormat exportFormat))
+            {
+                MessageBox.Show($"準備啟動 FFmpeg 引擎...\n輸出格式：{exportFormat}\n即將進行合成！", "輸出準備");
+            }
+            else
+            {
+                // 防呆處理：萬一轉換失敗
+                MessageBox.Show("選擇的格式無效，將使用預設格式 MP4。", "警告");
+                exportFormat = VideoFormat.MP4;
+            }
         }
 
         // ================= 播放器控制 =================
