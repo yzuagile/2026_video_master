@@ -6,12 +6,6 @@ using System.Windows.Controls;
 namespace framework // ⚠️注意：如果你的專案名稱不同，請把這裡改成你的專案名稱
 {
     // 定義支援的影片格式
-    public enum VideoFormat
-    {
-        MP4,
-        MKV,
-        MOV
-    }
 
     public partial class MainWindow : Window
     {
@@ -47,19 +41,17 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
                 MessageBox.Show("請先匯入影片！", "錯誤");
                 return;
             }
-            // 如果沒選中任何項目，就預設使用 "MP4"
-            string selectedText = (ComboFormat.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "MP4";
+            // 初始化並顯示彈跳視窗
+            ExportWindow exportWin = new ExportWindow();
+            exportWin.Owner = this; // 讓視窗居中於主視窗
 
-            // 2. 使用 TryParse 進行安全轉換，這能確保程式不會因為轉換失敗而當機
-            if (Enum.TryParse(selectedText, out VideoFormat exportFormat))
+            if (exportWin.ShowDialog() == true)
             {
-                MessageBox.Show($"準備啟動 FFmpeg 引擎...\n輸出格式：{exportFormat}\n即將進行合成！", "輸出準備");
-            }
-            else
-            {
-                // 防呆處理：萬一轉換失敗
-                MessageBox.Show("選擇的格式無效，將使用預設格式 MP4。", "警告");
-                exportFormat = VideoFormat.MP4;
+                // 當使用者點擊「開始匯出」
+                var format = exportWin.SelectedFormat;
+                var bitrate = exportWin.FinalBitrate;
+
+                MessageBox.Show($"收到匯出請求：\n格式：{format}\n碼率：{bitrate}\n準備啟動編碼引擎...", "啟動匯出");
             }
         }
 
