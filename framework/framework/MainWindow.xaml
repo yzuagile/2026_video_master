@@ -11,12 +11,6 @@
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#333333" VerticalAlignment="Center">
             <Button Name="BtnImport" Content="📁 匯入影片" Margin="15,0,5,0" Padding="15,5" Background="White" Click="BtnImport_Click"/>
-            <TextBlock Text="格式:" Foreground="White" VerticalAlignment="Center" Margin="10,0,5,0"/>
-            <ComboBox Name="ComboFormat" Width="80" Height="25" VerticalContentAlignment="Center" SelectedIndex="0">
-                <ComboBoxItem Content="MP4"/>
-                <ComboBoxItem Content="MKV"/>
-                <ComboBoxItem Content="MOV"/>
-            </ComboBox>
             <Button Name="BtnExport" Content="🎬 輸出影片" Margin="5,0,0,0" Padding="15,5" Background="#007ACC" Foreground="White" BorderBrush="{x:Null}" Click="BtnExport_Click"/>
         </StackPanel>
 
