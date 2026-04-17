@@ -166,6 +166,34 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
             return false;
         }
 
+        private string? FindFfmpegExecutable()
+        {
+            string[] candidates = new[]
+            {
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg.exe"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "ffmpeg.exe"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "ffmpeg.exe"),
+                "ffmpeg"
+            };
+
+            foreach (var candidate in candidates)
+            {
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(candidate) && File.Exists(candidate))
+                    {
+                        return Path.GetFullPath(candidate);
+                    }
+                }
+                catch
+                {
+                    // 忽略檔案存取錯誤，繼續尋找下一個候選路徑
+                }
+            }
+
+            return "ffmpeg";
+        }
+
         private bool ExecuteExport(ExportSettings settings)
         {
             if (string.IsNullOrEmpty(settings.OutputPath))
@@ -174,7 +202,13 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
                 return false;
             }
 
-            var ffmpegPath = "ffmpeg";
+            var ffmpegPath = FindFfmpegExecutable();
+            if (string.IsNullOrEmpty(ffmpegPath))
+            {
+                MessageBox.Show("找不到 FFmpeg 執行檔。請安裝 FFmpeg，或將 ffmpeg.exe 放在應用程式執行目錄中。", "錯誤");
+                return false;
+            }
+
             var args = new List<string>
             {
                 "-hide_banner",
@@ -240,7 +274,7 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
             }
             catch (System.ComponentModel.Win32Exception)
             {
-                MessageBox.Show("找不到 FFmpeg 執行檔，請確保已安裝 FFmpeg 並可在系統路徑中呼叫。", "錯誤");
+                MessageBox.Show("找不到 FFmpeg 執行檔，請安裝 FFmpeg 或將 ffmpeg.exe 放在應用程式執行目錄中。", "錯誤");
                 return false;
             }
             catch (Exception ex)
