@@ -11,13 +11,13 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using framework.Export;
 
 namespace framework
 {
     /// <summary>
     /// ExportWindow.xaml 的互動邏輯
     /// </summary>
-    public enum VideoFormat { MP4, MKV, MOV }
     public partial class ExportWindow : Window
     {
         // 定義屬性讓 MainWindow 可以讀取結果

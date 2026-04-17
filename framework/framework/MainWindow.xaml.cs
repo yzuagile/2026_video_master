@@ -1,10 +1,12 @@
 ﻿using Microsoft.Win32; // 為了使用 OpenFileDialog
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using framework.Export;
 
 namespace framework // ⚠️注意：如果你的專案名稱不同，請把這裡改成你的專案名稱
 {
@@ -209,41 +211,7 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
                 return false;
             }
 
-            var args = new List<string>
-            {
-                "-hide_banner",
-                "-y",
-                "-i",
-                currentVideoPath
-            };
-
-            if (settings.TrimStartSeconds >= 0 && settings.TrimEndSeconds > settings.TrimStartSeconds)
-            {
-                args.Add("-ss");
-                args.Add(settings.TrimStartSeconds.ToString("F2"));
-                args.Add("-to");
-                args.Add(settings.TrimEndSeconds.ToString("F2"));
-            }
-
-            args.Add("-c:v");
-            args.Add("libx264");
-            args.Add("-b:v");
-            args.Add(settings.Bitrate + "k");
-            args.Add("-preset");
-            args.Add("medium");
-            args.Add("-c:a");
-            args.Add("aac");
-            args.Add("-b:a");
-            args.Add("128k");
-
-            if (!string.IsNullOrWhiteSpace(settings.SubtitleText))
-            {
-                var safeText = settings.SubtitleText.Replace("\r\n", " ").Replace("\n", " ").Replace("\"", "\\\"");
-                args.Add("-vf");
-                args.Add($"drawtext=font=Arial:text={safeText}:fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-60");
-            }
-
-            args.Add(settings.OutputPath);
+            var args = FfmpegArgumentBuilder.Build(currentVideoPath, settings);
 
             try
             {
@@ -272,7 +240,7 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
 
                 return true;
             }
-            catch (System.ComponentModel.Win32Exception)
+            catch (Win32Exception)
             {
                 MessageBox.Show("找不到 FFmpeg 執行檔，請安裝 FFmpeg 或將 ffmpeg.exe 放在應用程式執行目錄中。", "錯誤");
                 return false;
@@ -282,17 +250,6 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
                 MessageBox.Show($"匯出失敗：{ex.Message}\n{ex.StackTrace}", "錯誤");
                 return false;
             }
-        }
-
-        private record ExportSettings
-        {
-            public VideoFormat Format { get; init; }
-            public string Bitrate { get; init; } = string.Empty;
-            public string SubtitleText { get; init; } = string.Empty;
-            public double TrimStartSeconds { get; init; }
-            public double TrimEndSeconds { get; init; }
-            public double DurationSeconds { get; init; }
-            public string OutputPath { get; set; } = string.Empty;
         }
 
         // 按鈕：設定剪輯標記
