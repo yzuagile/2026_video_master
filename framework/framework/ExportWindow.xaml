@@ -23,15 +23,15 @@
 
         <GroupBox Grid.Row="1" Header="輸出品質" Padding="10">
             <StackPanel>
-                <RadioButton Name="RadioLow" Content="低品質 (快速)" Margin="0,5"/>
-                <RadioButton Name="RadioMedium" Content="中品質 (標準)" IsChecked="True" Margin="0,5"/>
-                <RadioButton Name="RadioHigh" Content="高品質 (較慢)" Margin="0,5"/>
-                <RadioButton Name="RadioCustom" Content="進階自訂參數" Margin="0,5"/>
+                <RadioButton Name="RadioLow" Content="低品質 (快速)" Margin="0,5" Checked="RadioQuality_Checked"/>
+                <RadioButton Name="RadioMedium" Content="中品質 (標準)" IsChecked="True" Margin="0,5" Checked="RadioQuality_Checked"/>
+                <RadioButton Name="RadioHigh" Content="高品質 (較慢)" Margin="0,5" Checked="RadioQuality_Checked"/>
+                <RadioButton Name="RadioCustom" Content="進階自訂參數" Margin="0,5" Checked="RadioQuality_Checked"/>
 
                 <StackPanel Margin="20,5,0,0" IsEnabled="{Binding IsChecked, ElementName=RadioCustom}">
                     <StackPanel Orientation="Horizontal" Margin="0,5">
                         <TextBlock Text="碼率 (kbps): " Width="80"/>
-                        <TextBox Name="TxtBitrate" Width="100" Text="4000"/>
+                        <TextBox Name="TxtBitrate" Width="100" Text="4000" TextChanged="TxtBitrate_TextChanged"/>
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
