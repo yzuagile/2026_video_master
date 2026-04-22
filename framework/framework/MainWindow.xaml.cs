@@ -38,8 +38,93 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
             {
                 currentVideoPath = openFileDialog.FileName;
                 VideoPlayer.Source = new Uri(currentVideoPath);
-                VideoPlayer.MediaOpened += VideoPlayer_MediaOpened;
+
+                // 註冊 MediaOpened 事件，確保在影片資訊載入後才執行繪製
+                VideoPlayer.MediaOpened += (s, ev) =>
+                {
+                    if (VideoPlayer.NaturalDuration.HasTimeSpan)
+                    {
+                        double duration = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+
+                        // 確保畫布寬度足夠顯示整段影片
+                        TimeRulerCanvas.Width = duration * 20 + 100;
+                        VideoTrackCanvas.Width = duration * 20 + 100;
+
+                        DrawTimeRuler(duration); // 畫刻度
+                        AddVideoToTimeline(duration);
+                    }
+                };
+
                 VideoPlayer.Play(); // 讀取後自動播放
+            }
+        }
+
+        private void AddVideoToTimeline(double durationInSeconds)
+        {
+            double pixelPerSecond = 20;
+            double totalWidth = durationInSeconds * pixelPerSecond;
+
+            // 關鍵修正 1：主動設定 Canvas 的寬度，ScrollViewer 才會出現捲軸
+            VideoTrackCanvas.Width = totalWidth;
+            TimeRulerCanvas.Width = totalWidth;
+            TimelineContentStack.Width = totalWidth + 100; // 留一點右側空白
+
+            // 關鍵修正 2：確保 Canvas 內的物件從 0 開始
+            VideoTrackCanvas.Children.Clear();
+
+            System.Windows.Shapes.Rectangle videoSegment = new System.Windows.Shapes.Rectangle
+            {
+                Width = totalWidth,
+                Height = 35,
+                Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204)),
+                Stroke = System.Windows.Media.Brushes.White,
+                StrokeThickness = 1,
+                RadiusX = 3,
+                RadiusY = 3
+            };
+
+            Canvas.SetLeft(videoSegment, 0); // 確保對齊標尺 0 刻度
+            Canvas.SetTop(videoSegment, 2);
+            VideoTrackCanvas.Children.Add(videoSegment);
+        }
+
+        private void DrawTimeRuler(double totalSeconds)
+        {
+            TimeRulerCanvas.Children.Clear();
+            double pixelPerSecond = 20; // 必須與 AddVideoToTimeline 的比例一致
+            double majorTickInterval = 5; // 每 5 秒一個大刻度（帶數字）
+            double minorTickInterval = 1; // 每 1 秒一個小刻度
+
+            // 根據影片總長度或固定寬度繪製（例如繪製到 2000 像素寬）
+            for (double s = 0; s * pixelPerSecond < TimeRulerCanvas.ActualWidth || s <= totalSeconds; s += minorTickInterval)
+            {
+                double x = s * pixelPerSecond;
+                bool isMajor = s % majorTickInterval == 0;
+
+                // 建立刻度線
+                System.Windows.Shapes.Line tick = new System.Windows.Shapes.Line
+                {
+                    X1 = x,
+                    X2 = x,
+                    Y1 = isMajor ? 5 : 15, // 大刻度比較長
+                    Y2 = 25,
+                    Stroke = System.Windows.Media.Brushes.Gray,
+                    StrokeThickness = 1
+                };
+                TimeRulerCanvas.Children.Add(tick);
+
+                // 如果是大刻度，加上時間文字
+                if (isMajor)
+                {
+                    TextBlock timeText = new TextBlock
+                    {
+                        Text = $"{s}s",
+                        Foreground = System.Windows.Media.Brushes.LightGray,
+                        FontSize = 10,
+                        Margin = new Thickness(x + 2, 0, 0, 0)
+                    };
+                    TimeRulerCanvas.Children.Add(timeText);
+                }
             }
         }
 

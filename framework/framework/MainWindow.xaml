@@ -71,8 +71,32 @@
         </Grid>
 
         <Border Grid.Row="2" Background="#252526" Margin="10,0,10,10">
-            <TextBlock Text="✂️ 時間軸 (Timeline) 區域：未來將在這裡實作軌道拖拉功能" 
-                       HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#AAAAAA"/>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                <StackPanel Name="TimelineContentStack" Orientation="Vertical" HorizontalAlignment="Left">
+
+                    <StackPanel Orientation="Horizontal" Background="#2D2D2D">
+                        <RadioButton Name="ToolSelect" Content="🏹 選取 (V)" IsChecked="True" Margin="5" Foreground="White"/>
+                        <RadioButton Name="ToolRazor" Content="✂️ 剪刀 (C)" Margin="5" Foreground="White"/>
+                    </StackPanel>
+
+                    <Grid Height="25" Margin="0,0,0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Canvas Grid.Column="1" Name="TimeRulerCanvas" Background="#2D2D2D" HorizontalAlignment="Left"/>
+                    </Grid>
+
+                    <Grid Height="40" Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="🎬 影像軌" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <Canvas Grid.Column="1" Name="VideoTrackCanvas" Background="#1E1E1E" HorizontalAlignment="Left"/>
+                    </Grid>
+                </StackPanel>
+            </ScrollViewer>
         </Border>
     </Grid>
 </Window>
