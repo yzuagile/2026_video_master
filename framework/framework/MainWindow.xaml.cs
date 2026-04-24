@@ -23,8 +23,29 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
         public MainWindow()
         {
             InitializeComponent();
+            // 註冊視窗的 KeyDown 事件 (當鍵盤按鍵被按下時觸發)
+            this.KeyDown += MainWindow_KeyDown;
         }
+        private void MainWindow_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            // 1. 檢查按下的按鍵是否為 Delete 鍵
+            if (e.Key == System.Windows.Input.Key.Delete)
+            {
+                // 2. 防呆機制：檢查目前的「焦點」是否在輸入框 (TextBox) 上
+                // 如果使用者正在打字，我們就不要觸發影片刪除功能
+                if (System.Windows.Input.Keyboard.FocusedElement is TextBox)
+                {
+                    return; // 直接跳出，什麼都不做，讓 TextBox 自己處理字元的刪除
+                }
 
+                // 3. 如果不是在打字，就呼叫我們之前寫好的刪除按鈕邏輯
+                // 這裡傳入 null 也可以，因為我們在 BtnDelete_Click 裡沒有實際用到 sender 和 e
+                BtnDelete_Click(this, new RoutedEventArgs());
+
+                // 告訴系統這個按鍵事件已經處理完畢了，不用再往下傳遞
+                e.Handled = true;
+            }
+        }
         // ================= 工具列功能 =================
 
         // 按鈕：匯入影片
@@ -213,7 +234,35 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
             pendingSubtitleText = text;
             // TODO: 未來可在這裡封裝字幕參數，並傳遞給輸出流程
         }
+        // 按鈕：刪除選取的影像片段
+        private void BtnDelete_Click(object sender, RoutedEventArgs e)
+        {
+            // 1. 邏輯檢查：確認是否有匯入影片
+            if (string.IsNullOrEmpty(currentVideoPath))
+            {
+                MessageBox.Show("目前沒有載入任何影片片段。", "提示");
+                return;
+            }
 
+            // 2. 執行刪除動作 (目前你們的設計是單一音軌，這裡示範清空時間軸)
+            var result = MessageBox.Show("確定要從時間軸移除此影片嗎？", "確認刪除", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                // 清空時間軸畫布
+                VideoTrackCanvas.Children.Clear();
+
+                // 重設相關參數
+                currentVideoPath = "";
+                currentVideoDuration = 0;
+
+                // 停止播放器並清除來源
+                VideoPlayer.Stop();
+                VideoPlayer.Source = null;
+
+                MessageBox.Show("已成功從時間軸移除片段。", "系統訊息");
+            }
+        }
         private void StoreTrimSettings(double startSeconds, double endSeconds)
         {
             trimStartSeconds = startSeconds;
