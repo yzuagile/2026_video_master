@@ -72,8 +72,7 @@
 
         <Border Grid.Row="2" Background="#252526" Margin="10,0,10,10">
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                <StackPanel Name="TimelineContentStack" Orientation="Vertical" HorizontalAlignment="Left">
-
+                <StackPanel Name="TimelineContentStack" Orientation="Vertical" HorizontalAlignment="Left" Background="Transparent" MouseDown="VideoTrackCanvas_MouseDown">
                     <StackPanel Orientation="Horizontal" Background="#2D2D2D">
                         <RadioButton Name="ToolSelect" Content="🏹 選取 (V)" IsChecked="True" Margin="5" Foreground="White"/>
                         <RadioButton Name="ToolRazor" Content="✂️ 剪刀 (C)" Margin="5" Foreground="White"/>

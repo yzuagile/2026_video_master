@@ -23,8 +23,9 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
         public MainWindow()
         {
             InitializeComponent();
-            // 註冊視窗的 KeyDown 事件 (當鍵盤按鍵被按下時觸發)
             this.KeyDown += MainWindow_KeyDown;
+            // 新增這行：點擊軌道空白處取消選取
+            VideoTrackCanvas.MouseDown += (s, e) => ClearSelection();
         }
         private void MainWindow_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
@@ -98,15 +99,48 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
                 Width = totalWidth,
                 Height = 35,
                 Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204)),
-                Stroke = System.Windows.Media.Brushes.White,
-                StrokeThickness = 1,
+                Stroke = System.Windows.Media.Brushes.Transparent, 
+                StrokeThickness = 2,
                 RadiusX = 3,
                 RadiusY = 3
             };
 
+            videoSegment.MouseDown += VideoSegment_MouseDown;
+
             Canvas.SetLeft(videoSegment, 0); // 確保對齊標尺 0 刻度
             Canvas.SetTop(videoSegment, 2);
             VideoTrackCanvas.Children.Add(videoSegment);
+        }
+
+        private void VideoSegment_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            // 先取消所有人的選取
+            ClearSelection();
+
+            if (sender is System.Windows.Shapes.Rectangle rect)
+            {
+                rect.Stroke = System.Windows.Media.Brushes.White; // 變白框
+                rect.StrokeThickness = 2;
+            }
+
+            // 關鍵：標記事件已處理，不讓滑鼠點擊事件「穿透」到下層的 VideoTrackCanvas
+            e.Handled = true;
+        }
+
+        private void VideoTrackCanvas_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            ClearSelection();
+        }
+
+        private void ClearSelection()
+        {
+            foreach (var child in VideoTrackCanvas.Children)
+            {
+                if (child is System.Windows.Shapes.Rectangle rect)
+                {
+                    rect.Stroke = System.Windows.Media.Brushes.Transparent;
+                }
+            }           
         }
 
         private void DrawTimeRuler(double totalSeconds)
