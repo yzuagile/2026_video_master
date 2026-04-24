@@ -255,30 +255,7 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
 
         private string? FindFfmpegExecutable()
         {
-            string[] candidates = new[]
-            {
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg.exe"),
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "ffmpeg.exe"),
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "ffmpeg.exe"),
-                "ffmpeg"
-            };
-
-            foreach (var candidate in candidates)
-            {
-                try
-                {
-                    if (!string.IsNullOrWhiteSpace(candidate) && File.Exists(candidate))
-                    {
-                        return Path.GetFullPath(candidate);
-                    }
-                }
-                catch
-                {
-                    // 忽略檔案存取錯誤，繼續尋找下一個候選路徑
-                }
-            }
-
-            return "ffmpeg";
+            return FfmpegLocator.LocateExecutable();
         }
 
         private bool ExecuteExport(ExportSettings settings)
