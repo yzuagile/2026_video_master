@@ -31,8 +31,42 @@ jobs:
     - name: Publish self-contained executable
       run: dotnet publish framework/framework/framework.csproj -c Release --self-contained --runtime win-x64 -o publish
 
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: WPF-App-Executable
         path: publish/
+
+    - name: Send Slack Notification
+      if: always()
+      uses: slackapi/slack-github-action@v2.0.0
+      with:
+        webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+        webhook-type: incoming-webhook
+        payload: |
+          {
+            "text": "Build Status: ${{ job.status }}",
+            "attachments": [
+              {
+                "color": "${{ job.status == 'success' && 'good' || 'danger' }}",
+                "fields": [
+                  {
+                    "title": "Repo",
+                    "value": "${{ github.repository }}",
+                    "short": true
+                  },
+                  {
+                    "title": "Status",
+                    "value": "${{ job.status }}",
+                    "short": true
+                  },
+                  {
+                    "title": "Triggered by",
+                    "value": "${{ github.actor }}",
+                    "short": true
+                  }
+                ]
+              }
+            ]
+          }
