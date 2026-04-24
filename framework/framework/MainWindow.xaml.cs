@@ -19,12 +19,38 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
         private string pendingSubtitleText = "";
         private double trimStartSeconds = 0;
         private double trimEndSeconds = 0;
-
+        // 新增這兩個變數
+        private System.Windows.Threading.DispatcherTimer playheadTimer;
+        private const double PIXELS_PER_SECOND = 20; // 必須跟你之前畫刻度時的比例一樣！
         public MainWindow()
         {
             InitializeComponent();
+            InitializePlayheadTimer(); // 初始化定時器
             // 註冊視窗的 KeyDown 事件 (當鍵盤按鍵被按下時觸發)
             this.KeyDown += MainWindow_KeyDown;
+        }
+        private void InitializePlayheadTimer()
+        {
+            playheadTimer = new System.Windows.Threading.DispatcherTimer();
+            // 設定每 30 毫秒更新一次畫面 (大約 33 FPS，看起來比較滑順)
+            playheadTimer.Interval = TimeSpan.FromMilliseconds(30);
+            playheadTimer.Tick += PlayheadTimer_Tick;
+        }
+        private void PlayheadTimer_Tick(object sender, EventArgs e)
+        {
+            // 確保有載入影片且播放器有 NaturalDuration
+            if (VideoPlayer.Source != null && VideoPlayer.NaturalDuration.HasTimeSpan)
+            {
+                // 取得目前的播放時間
+                double currentPositionSeconds = VideoPlayer.Position.TotalSeconds;
+
+                // 計算在畫布上的 X 座標：時間 (秒) * 每一秒代表的像素
+                double xPosition = currentPositionSeconds * PIXELS_PER_SECOND;
+
+                // 更新紅線的位置
+                PlayheadLine.X1 = xPosition;
+                PlayheadLine.X2 = xPosition;
+            }
         }
         private void MainWindow_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
@@ -73,10 +99,18 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
 
                         DrawTimeRuler(duration); // 畫刻度
                         AddVideoToTimeline(duration);
+                        PlayheadLine.Visibility = Visibility.Visible; // 顯示紅線
+                        PlayheadLine.X1 = 0; // 位置歸零
+                        PlayheadLine.X2 = 0; // 位置歸零
                     }
                 };
 
                 VideoPlayer.Play(); // 讀取後自動播放
+                //確保有啟動計時器
+                if (playheadTimer != null)
+                {
+                    playheadTimer.Start();
+                }
             }
         }
 
@@ -154,6 +188,13 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
             if (VideoPlayer.NaturalDuration.HasTimeSpan)
             {
                 currentVideoDuration = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+                // 影片載入成功後，顯示紅線，並將位置歸零
+                PlayheadLine.Visibility = Visibility.Visible;
+                PlayheadLine.X1 = 0;
+                PlayheadLine.X2 = 0;
+
+                // 如果你設定載入後會自動播放，記得也要啟動 Timer
+                playheadTimer.Start();
             }
         }
 
@@ -202,12 +243,14 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
         private void BtnPlay_Click(object sender, RoutedEventArgs e)
         {
             VideoPlayer.Play();
+            playheadTimer.Start(); // 啟動定時器，開始更新紅線
         }
 
         // 按鈕：暫停
         private void BtnPause_Click(object sender, RoutedEventArgs e)
         {
             VideoPlayer.Pause();
+            playheadTimer.Stop(); // 暫停定時器
         }
 
         // ================= 分頁功能：字卡設定 =================
@@ -259,7 +302,9 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
                 // 停止播放器並清除來源
                 VideoPlayer.Stop();
                 VideoPlayer.Source = null;
-
+                // 隱藏紅線並停止更新
+                playheadTimer.Stop();
+                PlayheadLine.Visibility = Visibility.Collapsed;
                 MessageBox.Show("已成功從時間軸移除片段。", "系統訊息");
             }
         }
