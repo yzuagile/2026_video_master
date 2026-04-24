@@ -1,9 +1,10 @@
 ﻿<Window x:Class="framework.ExportWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="影片匯出設定" Height="450" Width="400" WindowStartupLocation="CenterOwner">
+        Title="影片匯出設定" Height="520" Width="420" WindowStartupLocation="CenterOwner">
     <Grid Margin="20">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -21,7 +22,7 @@
             </StackPanel>
         </GroupBox>
 
-        <GroupBox Grid.Row="1" Header="輸出品質" Padding="10">
+        <GroupBox Grid.Row="1" Header="輸出品質" Padding="10" Margin="0,0,0,10">
             <StackPanel>
                 <RadioButton Name="RadioLow" Content="低品質 (快速)" Margin="0,5" Checked="RadioQuality_Checked"/>
                 <RadioButton Name="RadioMedium" Content="中品質 (標準)" IsChecked="True" Margin="0,5" Checked="RadioQuality_Checked"/>
@@ -37,11 +38,39 @@
             </StackPanel>
         </GroupBox>
 
-        <StackPanel Grid.Row="2" VerticalAlignment="Bottom" Margin="0,10">
+        <GroupBox Grid.Row="2" Header="進階輸出設定" Padding="10" Margin="0,0,0,10">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,5">
+                    <TextBlock Text="視訊編碼：" Width="80" VerticalAlignment="Center"/>
+                    <ComboBox Name="ComboVideoCodec" Width="150" SelectedIndex="0">
+                        <ComboBoxItem Content="H264"/>
+                        <ComboBoxItem Content="H265"/>
+                        <ComboBoxItem Content="VP9"/>
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,5">
+                    <TextBlock Text="音訊編碼：" Width="80" VerticalAlignment="Center"/>
+                    <ComboBox Name="ComboAudioCodec" Width="150" SelectedIndex="0">
+                        <ComboBoxItem Content="AAC"/>
+                        <ComboBoxItem Content="MP3"/>
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,5">
+                    <TextBlock Text="畫面寬度：" Width="80" VerticalAlignment="Center"/>
+                    <TextBox Name="TxtWidth" Width="80" Text=""/>
+                    <TextBlock Text="  高度：" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    <TextBox Name="TxtHeight" Width="80" Text=""/>
+                </StackPanel>
+                <CheckBox Name="ChkFastStart" Content="啟用快速啟動 +faststart" Margin="0,5"/>
+                <TextBlock Text="讓影片能在網路播放時更快啟動。" FontSize="11" Foreground="Gray" Margin="90,0,0,0"/>
+            </StackPanel>
+        </GroupBox>
+
+        <StackPanel Grid.Row="3" VerticalAlignment="Bottom" Margin="0,10">
             <TextBlock Name="LblSizeEstimate" Text="預估檔案大小：計算中..." Foreground="Gray"/>
         </StackPanel>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Name="BtnCancel" Content="取消" Width="80" Margin="0,0,10,0" Click="BtnCancel_Click"/>
             <Button Name="BtnConfirm" Content="開始匯出" Width="100" Background="#007ACC" Foreground="White" Click="BtnConfirm_Click"/>
         </StackPanel>

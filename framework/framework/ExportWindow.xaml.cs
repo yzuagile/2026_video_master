@@ -23,6 +23,11 @@ namespace framework
         // 定義屬性讓 MainWindow 可以讀取結果
         public VideoFormat SelectedFormat { get; private set; }
         public string FinalBitrate { get; private set; } = "";
+        public VideoCodec SelectedVideoCodec { get; private set; } = VideoCodec.H264;
+        public AudioCodec SelectedAudioCodec { get; private set; } = AudioCodec.AAC;
+        public int OutputWidth { get; private set; }
+        public int OutputHeight { get; private set; }
+        public bool EnableFastStart { get; private set; }
 
         private double videoDurationSeconds; // 影片持續時間（秒）
 
@@ -134,6 +139,12 @@ namespace framework
                     }
                 }
 
+                SelectedVideoCodec = ParseEnumFromCombo<VideoCodec>(ComboVideoCodec, VideoCodec.H264);
+                SelectedAudioCodec = ParseEnumFromCombo<AudioCodec>(ComboAudioCodec, AudioCodec.AAC);
+                OutputWidth = ParsePositiveInt(TxtWidth.Text);
+                OutputHeight = ParsePositiveInt(TxtHeight.Text);
+                EnableFastStart = ChkFastStart.IsChecked == true;
+
                 this.DialogResult = true;
                 this.Close();
             }
@@ -141,6 +152,27 @@ namespace framework
             {
                 MessageBox.Show($"匯出確認失敗：{ex.Message}\n{ex.StackTrace}", "錯誤");
             }
+        }
+
+        private static T ParseEnumFromCombo<T>(System.Windows.Controls.ComboBox comboBox, T defaultValue) where T : struct
+        {
+            var selectedText = (comboBox.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
+            if (!string.IsNullOrWhiteSpace(selectedText) && Enum.TryParse<T>(selectedText, out var result))
+            {
+                return result;
+            }
+
+            return defaultValue;
+        }
+
+        private static int ParsePositiveInt(string? value)
+        {
+            if (int.TryParse(value, out var result) && result > 0)
+            {
+                return result;
+            }
+
+            return 0;
         }
 
         private void RadioQuality_Checked(object sender, RoutedEventArgs e)

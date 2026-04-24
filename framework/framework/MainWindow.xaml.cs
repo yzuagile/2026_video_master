@@ -156,7 +156,7 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
                     // 當使用者點擊「開始匯出」
                     var format = exportWin.SelectedFormat;
                     var bitrate = exportWin.FinalBitrate;
-                    var exportSettings = CreateExportSettings(format, bitrate);
+                    var exportSettings = CreateExportSettings(format, bitrate, exportWin);
 
                     if (!AskSaveExportPath(exportSettings))
                     {
@@ -221,13 +221,17 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
             // TODO: 未來可在這裡驗證並記錄剪輯參數，讓 ExportWindow 使用
         }
 
-        private ExportSettings CreateExportSettings(VideoFormat format, string bitrate)
+        private ExportSettings CreateExportSettings(VideoFormat format, string bitrate, ExportWindow exportWindow)
         {
-            // TODO: 擴充更多輸出選項，例如分辨率、編碼器、音訊設定
             return new ExportSettings
             {
                 Format = format,
                 Bitrate = bitrate,
+                VideoCodec = exportWindow.SelectedVideoCodec,
+                AudioCodec = exportWindow.SelectedAudioCodec,
+                OutputWidth = exportWindow.OutputWidth,
+                OutputHeight = exportWindow.OutputHeight,
+                EnableFastStart = exportWindow.EnableFastStart,
                 SubtitleText = pendingSubtitleText,
                 TrimStartSeconds = trimStartSeconds,
                 TrimEndSeconds = trimEndSeconds,

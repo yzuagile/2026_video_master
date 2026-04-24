@@ -1,4 +1,4 @@
-using framework.Export;
+﻿using framework.Export;
 
 namespace VideoMaster.Tests;
 
@@ -23,10 +23,14 @@ public class FfmpegArgumentBuilderTests
                 "2000k",
                 "-preset",
                 "medium",
+                "-pix_fmt",
+                "yuv420p",
                 "-c:a",
                 "aac",
                 "-b:a",
                 "128k",
+                "-ac",
+                "2",
                 "output.mp4"
             ],
             args);
@@ -80,6 +84,56 @@ public class FfmpegArgumentBuilderTests
 
         Assert.NotEqual(-1, filterIndex);
         Assert.Equal("drawtext=font=Arial:text=hello \\\"world\\\":fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-60", args[filterIndex + 1]);
+    }
+
+    [Fact]
+    public void 建立參數_指定解析度時_加入Scale濾鏡()
+    {
+        var settings = CreateSettings() with
+        {
+            OutputWidth = 1280,
+            OutputHeight = 720
+        };
+
+        var args = FfmpegArgumentBuilder.Build("input.mp4", settings);
+        var filterIndex = args.IndexOf("-vf");
+
+        Assert.NotEqual(-1, filterIndex);
+        Assert.Equal("scale=1280:720", args[filterIndex + 1]);
+    }
+
+    [Fact]
+    public void 建立參數_啟用快速啟動時_加入FastStart參數()
+    {
+        var settings = CreateSettings() with
+        {
+            EnableFastStart = true
+        };
+
+        var args = FfmpegArgumentBuilder.Build("input.mp4", settings);
+
+        Assert.Contains("-movflags", args);
+        Assert.Contains("+faststart", args);
+    }
+
+    [Fact]
+    public void 建立參數_音訊轉MP3時_使用LibMp3lame()
+    {
+        var settings = CreateSettings() with
+        {
+            AudioCodec = AudioCodec.MP3,
+            AudioBitrate = "192",
+            AudioChannels = 1
+        };
+
+        var args = FfmpegArgumentBuilder.Build("input.mp4", settings);
+
+        Assert.Contains("-c:a", args);
+        Assert.Contains("libmp3lame", args);
+        Assert.Contains("-b:a", args);
+        Assert.Contains("192k", args);
+        Assert.Contains("-ac", args);
+        Assert.Contains("1", args);
     }
 
     private static ExportSettings CreateSettings()
