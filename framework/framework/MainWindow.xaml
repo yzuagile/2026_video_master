@@ -72,32 +72,50 @@
 
         <Border Grid.Row="2" Background="#252526" Margin="10,0,10,10">
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                <StackPanel Name="TimelineContentStack" Orientation="Vertical" HorizontalAlignment="Left" Background="Transparent" MouseDown="VideoTrackCanvas_MouseDown">
+
+                <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Background="Transparent" MouseDown="VideoTrackCanvas_MouseDown">
+
                     <StackPanel Orientation="Horizontal" Background="#2D2D2D">
                         <RadioButton Name="ToolSelect" Content="🏹 選取 (V)" IsChecked="True" Margin="5" Foreground="White"/>
                         <RadioButton Name="ToolRazor" Content="✂️ 剪刀 (C)" Margin="5" Foreground="White"/>
                         <Button x:Name="BtnDelete" Content="✖ 刪除 (Del)" Click="BtnDelete_Click" 
-            Margin="10,5,5,5" Padding="10,0" 
-            Background="Transparent" Foreground="White" BorderThickness="0" 
-            Cursor="Hand"/>
+                        Margin="10,5,5,5" Padding="10,0" 
+                        Background="Transparent" Foreground="White" BorderThickness="0" 
+                        Cursor="Hand"/>
                     </StackPanel>
 
-                    <Grid Height="25" Margin="0,0,0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="80"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <Canvas Grid.Column="1" Name="TimeRulerCanvas" Background="#2D2D2D" HorizontalAlignment="Left"/>
+                    <Grid Name="TimelineContentStack">
+                        <StackPanel Orientation="Vertical">
+
+                            <Grid Height="25" Margin="0,0,0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Canvas Grid.Column="1" Name="TimeRulerCanvas" Background="#2D2D2D" HorizontalAlignment="Left"/>
+                            </Grid>
+
+                            <Grid Height="40" Margin="0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="4*"/>
+                                    <ColumnDefinition Width="207*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="🎬 影像軌" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <Canvas Grid.Column="1" Name="VideoTrackCanvas" Background="#1E1E1E" HorizontalAlignment="Left" Grid.ColumnSpan="2"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <Canvas Name="PlayheadCanvas" IsHitTestVisible="False" Margin="80,0,0,0" Panel.ZIndex="1">
+                            <Line x:Name="PlayheadLine" 
+                          X1="0"  Y1="0" X2="0"  Y2="69"   
+                          Stroke="Red" 
+                          StrokeThickness="2" 
+                          Visibility="Collapsed" />
+                        </Canvas>
                     </Grid>
 
-                    <Grid Height="40" Margin="0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="80"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="🎬 影像軌" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                        <Canvas Grid.Column="1" Name="VideoTrackCanvas" Background="#1E1E1E" HorizontalAlignment="Left"/>
-                    </Grid>
                 </StackPanel>
             </ScrollViewer>
         </Border>
