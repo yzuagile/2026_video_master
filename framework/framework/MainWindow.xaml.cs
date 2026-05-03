@@ -1,4 +1,5 @@
-﻿using Microsoft.Win32; // 為了使用 OpenFileDialog
+﻿using framework.Export;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -6,12 +7,11 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using framework.Export;
+using System.Windows.Input;
+using System.Windows.Media;
 
-namespace framework // ⚠️注意：如果你的專案名稱不同，請把這裡改成你的專案名稱
+namespace framework
 {
-    // 定義支援的影片格式
-
     public partial class MainWindow : Window
     {
         private string currentVideoPath = "";
@@ -19,17 +19,51 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
         private string pendingSubtitleText = "";
         private double trimStartSeconds = 0;
         private double trimEndSeconds = 0;
-        // 新增這兩個變數
+
         private System.Windows.Threading.DispatcherTimer playheadTimer;
-        private const double PIXELS_PER_SECOND = 20; // 必須跟你之前畫刻度時的比例一樣！
+        private System.Windows.Threading.DispatcherTimer autoScrollTimer; // 自動捲動計時器
+        private const double PIXELS_PER_SECOND = 20;
+
+        // 記錄目前是否正在拖曳游標
+        private bool isDraggingPlayhead = false;
+
+        // 控制時間軸平移
+        private TranslateTransform timelineTransform = new TranslateTransform();
+        private double timelineOffsetX = 0;
+
         public MainWindow()
         {
             InitializeComponent();
             InitializePlayheadTimer(); // 初始化定時器
-            // 註冊視窗的 KeyDown 事件 (當鍵盤按鍵被按下時觸發)
+            // 視窗的 KeyDown 事件 (當鍵盤按鍵被按下時觸發)
             this.KeyDown += MainWindow_KeyDown;
-            // 新增這行：點擊軌道空白處取消選取
+            // 點擊軌道空白處取消選取
             VideoTrackCanvas.MouseDown += (s, e) => ClearSelection();
+
+            // 畫布可以接收滑鼠點擊
+            TimeRulerCanvas.Background = System.Windows.Media.Brushes.Transparent;
+            VideoTrackCanvas.Background = System.Windows.Media.Brushes.Transparent;
+
+            // 時間軸拖曳事件
+            TimeRulerCanvas.PreviewMouseLeftButtonDown += Timeline_MouseLeftButtonDown;
+            TimeRulerCanvas.PreviewMouseMove += Timeline_MouseMove;
+            TimeRulerCanvas.PreviewMouseLeftButtonUp += Timeline_MouseLeftButtonUp;
+            VideoTrackCanvas.PreviewMouseLeftButtonDown += Timeline_MouseLeftButtonDown;
+            VideoTrackCanvas.PreviewMouseMove += Timeline_MouseMove;
+            VideoTrackCanvas.PreviewMouseLeftButtonUp += Timeline_MouseLeftButtonUp;
+
+            // 視窗載入後，綁定平移特效與滾輪事件
+            this.Loaded += (s, e) =>
+            {
+                if (TimelineContentStack != null)
+                {
+                    // 讓 TimelineContentStack 可以被程式「推動」
+                    TimelineContentStack.RenderTransform = timelineTransform;
+                }
+
+                // 滾輪事件，讓 user 可以用滾輪左右看時間軸
+                this.MouseWheel += MainWindow_MouseWheel;
+            };
         }
         private void InitializePlayheadTimer()
         {
@@ -37,23 +71,164 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
             // 設定每 30 毫秒更新一次畫面 (大約 33 FPS，看起來比較滑順)
             playheadTimer.Interval = TimeSpan.FromMilliseconds(30);
             playheadTimer.Tick += PlayheadTimer_Tick;
+
+            // 初始化自動捲動計時器
+            autoScrollTimer = new System.Windows.Threading.DispatcherTimer();
+            autoScrollTimer.Interval = TimeSpan.FromMilliseconds(30);
+            autoScrollTimer.Tick += AutoScrollTimer_Tick;
         }
         private void PlayheadTimer_Tick(object sender, EventArgs e)
         {
             // 確保有載入影片且播放器有 NaturalDuration
             if (VideoPlayer.Source != null && VideoPlayer.NaturalDuration.HasTimeSpan)
             {
-                // 取得目前的播放時間
-                double currentPositionSeconds = VideoPlayer.Position.TotalSeconds;
+                if (!isDraggingPlayhead)
+                {
+                    // 取得目前的播放時間
+                    double currentPositionSeconds = VideoPlayer.Position.TotalSeconds;
+                    // 計算在畫布上的 X 座標：時間 (秒) * 每一秒代表的像素
+                    double xPosition = currentPositionSeconds * PIXELS_PER_SECOND;
 
-                // 計算在畫布上的 X 座標：時間 (秒) * 每一秒代表的像素
-                double xPosition = currentPositionSeconds * PIXELS_PER_SECOND;
-
-                // 更新紅線的位置
-                PlayheadLine.X1 = xPosition;
-                PlayheadLine.X2 = xPosition;
+                    // 更新紅線的位置
+                    PlayheadLine.X1 = xPosition;
+                    PlayheadLine.X2 = xPosition;
+                }
             }
         }
+
+        private void AutoScrollTimer_Tick(object sender, EventArgs e)
+        {
+            if (isDraggingPlayhead)
+            {
+                // 邊緣自動平移 (Auto-scroll)
+                // 當 user 正在拖曳且滑鼠靠近視窗左右兩側時，讓時間軸自動滾動
+                Point mousePosInWindow = Mouse.GetPosition(this);
+                bool needsScroll = false;
+
+                // 靠近視窗右側邊緣 100 像素內 (時間軸往左滑)
+                if (mousePosInWindow.X > this.ActualWidth - 100)
+                {
+                    timelineOffsetX -= 15; // 捲動速度
+                    needsScroll = true;
+                }
+                // 靠近視窗左側邊緣 100 像素內 (時間軸往右滑)
+                else if (mousePosInWindow.X < 100 && timelineOffsetX < 0)
+                {
+                    timelineOffsetX += 15;
+                    needsScroll = true;
+                }
+
+                if (needsScroll)
+                {
+                    // 確保捲動不超過邊界
+                    if (timelineOffsetX > 0) timelineOffsetX = 0;
+                    double minOffset = -(TimelineContentStack.Width - this.ActualWidth + 100);
+                    if (minOffset > 0) minOffset = 0;
+                    if (timelineOffsetX < minOffset) timelineOffsetX = minOffset;
+
+                    // 套用自動平移
+                    timelineTransform.X = timelineOffsetX;
+
+                    // 平移後 要依據滑鼠相對於 Canvas 的新位置重新計算紅線
+                    Point canvasPos = Mouse.GetPosition(VideoTrackCanvas);
+                    UpdatePlayheadPosition(canvasPos.X);
+                }
+            }
+        }
+
+        // 時間軸游標拖曳功能
+        private bool wasPlayingBeforeDrag = false; // 紀錄拖曳前是否正在播放
+        private int lastScrubTick = 0; // 紀錄上一次更新畫面的時間點
+        private void Timeline_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (VideoPlayer.Source == null || !VideoPlayer.NaturalDuration.HasTimeSpan) return;
+
+            // 鎖定滑鼠，確保拖曳時即使滑鼠移出畫布外（例如滑到視窗外），也能繼續觸發 MouseMove
+            if (sender is UIElement element)
+            {
+                double clickX = e.GetPosition(element).X;
+
+                // 判斷邏輯：
+                // 1. 如果點在時間刻度區 (TimeRulerCanvas)，隨意點擊都能跳轉並拖曳
+                bool isClickingOnRuler = sender == TimeRulerCanvas;
+
+                // 2. 如果點在影像軌道區 (VideoTrackCanvas)，必須點在「紅線附近 (誤差 +- 10 像素)」，才能拖拉游標
+                bool isClickingNearPlayhead = Math.Abs(clickX - PlayheadLine.X1) <= 10;
+
+                if (isClickingOnRuler || isClickingNearPlayhead)
+                {
+                    isDraggingPlayhead = true;
+                    element.CaptureMouse(); // 鎖定滑鼠，確保游標滑到視窗外也不會中斷
+                    wasPlayingBeforeDrag = playheadTimer.IsEnabled;
+                    if (wasPlayingBeforeDrag)
+                    {
+                        VideoPlayer.Pause();
+                        playheadTimer.Stop();
+                    }
+
+                    // 開始拖曳時 啟動自動捲動計時器
+                    autoScrollTimer.Start();
+
+                    UpdatePlayheadPosition(clickX);
+                    // 攔截事件 防止點擊穿透到影片區塊引發選取白框的邏輯
+                    e.Handled = true;
+                }
+            }
+        }
+
+        private void Timeline_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (isDraggingPlayhead && sender is UIElement element)
+            {
+                UpdatePlayheadPosition(e.GetPosition(element).X);
+            }
+        }
+
+        private void Timeline_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (isDraggingPlayhead && sender is UIElement element)
+            {
+                isDraggingPlayhead = false;
+                element.ReleaseMouseCapture(); // 釋放滑鼠鎖定
+            }
+
+            // 停止拖曳時 關閉自動捲動計時器
+            autoScrollTimer.Stop();
+
+            // (若希望放開後恢復播放，可以保留以下這段。若不需要可移除)
+            if (wasPlayingBeforeDrag)
+            {
+                VideoPlayer.Play();
+                playheadTimer.Start();
+            }
+        }
+
+        private void UpdatePlayheadPosition(double mouseX)
+        {
+            // 防呆：確保獲取到正確的影片總長度，避免被當成 0 秒處理
+            double duration = currentVideoDuration;
+            if (duration <= 0 && VideoPlayer.NaturalDuration.HasTimeSpan)
+            {
+                duration = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+                currentVideoDuration = duration;
+            }
+
+            if (duration <= 0) return; // 雙重防呆
+
+            // 1. 確保游標被限制在 0 到 影片結尾 之間
+            if (mouseX < 0) mouseX = 0;
+            double maxX = duration * PIXELS_PER_SECOND;
+            if (mouseX > maxX) mouseX = maxX;
+
+            // 2. 即時更新紅線的視覺位置
+            PlayheadLine.X1 = mouseX;
+            PlayheadLine.X2 = mouseX;
+
+            // 3. 計算拖曳到的時間點，並同步更新影片進度 (此時影片依然在播放)
+            double targetSeconds = mouseX / PIXELS_PER_SECOND;
+            VideoPlayer.Position = TimeSpan.FromSeconds(targetSeconds);
+        }
+
         private void MainWindow_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             // 1. 檢查按下的按鍵是否為 Delete 鍵
@@ -74,6 +249,27 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
                 e.Handled = true;
             }
         }
+
+        // 滑鼠滾輪平移
+        private void MainWindow_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (VideoPlayer.Source == null) return;
+
+            // 根據滾輪方向決定位移 (每次滾動移動 50 像素)
+            timelineOffsetX += e.Delta > 0 ? 50 : -50;
+
+            // 防呆 1：不能往右拉過頭 (起點最大為 0)
+            if (timelineOffsetX > 0) timelineOffsetX = 0;
+
+            // 防呆 2：不能往左拉超過時間軸的總長度
+            double minOffset = -(TimelineContentStack.Width - this.ActualWidth + 100);
+            if (minOffset > 0) minOffset = 0;
+            if (timelineOffsetX < minOffset) timelineOffsetX = minOffset;
+
+            // 套用平移效果
+            timelineTransform.X = timelineOffsetX;
+        }
+
         // ================= 工具列功能 =================
 
         // 按鈕：匯入影片
@@ -94,6 +290,7 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
                     if (VideoPlayer.NaturalDuration.HasTimeSpan)
                     {
                         double duration = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+                        currentVideoDuration = duration;
 
                         // 確保畫布寬度足夠顯示整段影片
                         TimeRulerCanvas.Width = duration * 20 + 100;
@@ -158,7 +355,7 @@ namespace framework // ⚠️注意：如果你的專案名稱不同，請把這
                 rect.StrokeThickness = 2;
             }
 
-            // 關鍵：標記事件已處理，不讓滑鼠點擊事件「穿透」到下層的 VideoTrackCanvas
+            // 標記事件已處理，不讓滑鼠點擊事件「穿透」到下層的 VideoTrackCanvas
             e.Handled = true;
         }
 
