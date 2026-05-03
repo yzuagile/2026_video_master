@@ -34,7 +34,7 @@
                         <TextBlock Text="🎬 字卡設定面板" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
                         <TextBlock Text="請輸入字幕內容：" Margin="0,0,0,5"/>
                         <TextBox Name="TxtSubtitle" Height="80" TextWrapping="Wrap" Margin="0,0,0,15" AcceptsReturn="True"/>
-                        <Button Name="BtnAddText" Content="套用字卡設定" Padding="8" Click="BtnAddText_Click"/>
+                        <Button Name="BtnAddText" Content="新增字卡" Padding="8" Click="BtnAddText_Click"/>
                     </StackPanel>
                 </TabItem>
 
@@ -67,7 +67,7 @@
         </Grid>
 
         <Border Grid.Row="2" Background="#252526" Margin="10,0,10,10">
-            <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Background="Transparent" MouseDown="VideoTrackCanvas_MouseDown">
 
                     <StackPanel Orientation="Horizontal" Background="#2D2D2D">
@@ -93,7 +93,7 @@
                                 <Canvas Grid.Column="1" Name="TimeRulerCanvas" Background="#2D2D2D" HorizontalAlignment="Left"/>
                             </Grid>
 
-                            <Grid Height="40" Margin="0,2">
+                            <Grid Height="120" Margin="0,2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="80"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -107,7 +107,7 @@
 
                         <Canvas Name="PlayheadCanvas" IsHitTestVisible="False" Margin="80,0,0,0" Panel.ZIndex="1">
                             <Line x:Name="PlayheadLine" 
-                          X1="0"  Y1="0" X2="0"  Y2="69"   
+                          X1="0"  Y1="0" X2="0"  Y2="120"   
                           Stroke="Red" 
                           StrokeThickness="2" 
                           Visibility="Collapsed" />

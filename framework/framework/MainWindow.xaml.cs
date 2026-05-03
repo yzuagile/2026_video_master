@@ -52,7 +52,7 @@ namespace framework
             VideoTrackCanvas.PreviewMouseMove += Timeline_MouseMove;
             VideoTrackCanvas.PreviewMouseLeftButtonUp += Timeline_MouseLeftButtonUp;
 
-            // 視窗載入後，綁定平移特效與滾輪事件
+            // 視窗載入後，綁定平移特效 (已移除滾輪綁定)
             this.Loaded += (s, e) =>
             {
                 if (TimelineContentStack != null)
@@ -60,11 +60,9 @@ namespace framework
                     // 讓 TimelineContentStack 可以被程式「推動」
                     TimelineContentStack.RenderTransform = timelineTransform;
                 }
-
-                // 滾輪事件，讓 user 可以用滾輪左右看時間軸
-                this.MouseWheel += MainWindow_MouseWheel;
             };
         }
+
         private void InitializePlayheadTimer()
         {
             playheadTimer = new System.Windows.Threading.DispatcherTimer();
@@ -77,6 +75,7 @@ namespace framework
             autoScrollTimer.Interval = TimeSpan.FromMilliseconds(30);
             autoScrollTimer.Tick += AutoScrollTimer_Tick;
         }
+
         private void PlayheadTimer_Tick(object sender, EventArgs e)
         {
             // 確保有載入影片且播放器有 NaturalDuration
@@ -250,26 +249,6 @@ namespace framework
             }
         }
 
-        // 滑鼠滾輪平移
-        private void MainWindow_MouseWheel(object sender, MouseWheelEventArgs e)
-        {
-            if (VideoPlayer.Source == null) return;
-
-            // 根據滾輪方向決定位移 (每次滾動移動 50 像素)
-            timelineOffsetX += e.Delta > 0 ? 50 : -50;
-
-            // 防呆 1：不能往右拉過頭 (起點最大為 0)
-            if (timelineOffsetX > 0) timelineOffsetX = 0;
-
-            // 防呆 2：不能往左拉超過時間軸的總長度
-            double minOffset = -(TimelineContentStack.Width - this.ActualWidth + 100);
-            if (minOffset > 0) minOffset = 0;
-            if (timelineOffsetX < minOffset) timelineOffsetX = minOffset;
-
-            // 套用平移效果
-            timelineTransform.X = timelineOffsetX;
-        }
-
         // ================= 工具列功能 =================
 
         // 按鈕：匯入影片
@@ -298,9 +277,18 @@ namespace framework
 
                         DrawTimeRuler(duration); // 畫刻度
                         AddVideoToTimeline(duration);
+
                         PlayheadLine.Visibility = Visibility.Visible; // 顯示紅線
                         PlayheadLine.X1 = 0; // 位置歸零
                         PlayheadLine.X2 = 0; // 位置歸零
+
+                        // 修正：設定紅線長度，使其往下涵蓋多個軌道
+                        PlayheadLine.Y1 = 0;
+                        PlayheadLine.Y2 = 120;
+
+                        // 匯入新影片時重置平移狀態
+                        timelineOffsetX = 0;
+                        timelineTransform.X = 0;
                     }
                 };
 
@@ -331,7 +319,7 @@ namespace framework
                 Width = totalWidth,
                 Height = 35,
                 Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204)),
-                Stroke = System.Windows.Media.Brushes.Transparent, 
+                Stroke = System.Windows.Media.Brushes.Transparent,
                 StrokeThickness = 2,
                 RadiusX = 3,
                 RadiusY = 3
@@ -340,7 +328,10 @@ namespace framework
             videoSegment.MouseDown += VideoSegment_MouseDown;
 
             Canvas.SetLeft(videoSegment, 0); // 確保對齊標尺 0 刻度
-            Canvas.SetTop(videoSegment, 2);
+
+            // 將影像軌往下移到 Top=45，把上方的空間留給字卡
+            Canvas.SetTop(videoSegment, 45);
+
             VideoTrackCanvas.Children.Add(videoSegment);
         }
 
@@ -364,6 +355,7 @@ namespace framework
             ClearSelection();
         }
 
+        // 辨識並清除字卡(Border)的白框
         private void ClearSelection()
         {
             foreach (var child in VideoTrackCanvas.Children)
@@ -372,7 +364,11 @@ namespace framework
                 {
                     rect.Stroke = System.Windows.Media.Brushes.Transparent;
                 }
-            }           
+                else if (child is Border border)
+                {
+                    border.BorderBrush = System.Windows.Media.Brushes.Transparent;
+                }
+            }
         }
 
         private void DrawTimeRuler(double totalSeconds)
@@ -424,6 +420,8 @@ namespace framework
                 PlayheadLine.Visibility = Visibility.Visible;
                 PlayheadLine.X1 = 0;
                 PlayheadLine.X2 = 0;
+                PlayheadLine.Y1 = 0;
+                PlayheadLine.Y2 = 120;
 
                 // 如果你設定載入後會自動播放，記得也要啟動 Timer
                 playheadTimer.Start();
@@ -490,6 +488,11 @@ namespace framework
         // 按鈕：套用字卡
         private void BtnAddText_Click(object sender, RoutedEventArgs e)
         {
+            if (VideoPlayer.Source == null || !VideoPlayer.NaturalDuration.HasTimeSpan)
+            {
+                MessageBox.Show("請先匯入影片！", "提示");
+                return;
+            }
             string textToApply = TxtSubtitle.Text;
             if (string.IsNullOrEmpty(textToApply))
             {
@@ -497,9 +500,60 @@ namespace framework
                 return;
             }
 
+            // 1. 取得目前游標的時間點與 X 座標
+            double currentPosSeconds = VideoPlayer.Position.TotalSeconds;
+            double startX = currentPosSeconds * PIXELS_PER_SECOND;
+
+            // 2. 設定字卡長度為 5 秒，並計算在畫布上的寬度
+            double durationSeconds = 5.0;
+            double cardWidth = durationSeconds * PIXELS_PER_SECOND;
+
+            // 3. 建立字卡的 UI 元素 (使用 Border 方便包裝文字並加上圓角背景)
+            Border textCard = new Border
+            {
+                Width = cardWidth,
+                Height = 30, // 高度設定為 30，比影片軌稍微扁一點點
+                Background = new SolidColorBrush(Color.FromRgb(70, 80, 100)), // 參考附圖的灰藍色調
+                CornerRadius = new CornerRadius(4),
+                BorderBrush = Brushes.Transparent,
+                BorderThickness = new Thickness(2)
+            };
+
+            TextBlock textBlock = new TextBlock
+            {
+                Text = textToApply,
+                Foreground = Brushes.White,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis, // 文字過長時會顯示 "..."
+                Padding = new Thickness(5, 0, 5, 0)
+            };
+
+            textCard.Child = textBlock;
+
+            // 4. 註冊字卡的點擊事件 (使其可以被選取，點擊後會出現白框)
+            textCard.MouseDown += (s, ev) =>
+            {
+                ClearSelection();
+                textCard.BorderBrush = Brushes.White;
+                ev.Handled = true; // 避免點擊穿透到背景
+            };
+
+            // 5. 設定字卡在 VideoTrackCanvas 中的位置
+            Canvas.SetLeft(textCard, startX);
+
+            // 影片軌段預設放在 Top=45，Height=35
+            // 將字卡軌設定在 Top=5，就會出現在影像軌的上方
+            Canvas.SetTop(textCard, 5);
+
+            // 6. 將字卡加入畫布中
+            VideoTrackCanvas.Children.Add(textCard);
+
+            // 原本紀錄文字的邏輯
             StoreSubtitleSettings(textToApply);
 
-            MessageBox.Show($"已記錄字卡內容：「{textToApply}」。\n\n(目前為純記錄，後續將把此參數傳遞給 FFmpeg)", "系統訊息");
+            // 自動清空輸入框，方便使用者連續輸入下一個字卡
+            TxtSubtitle.Text = "";
         }
 
         // ================= 分頁功能：影像剪輯 =================
@@ -530,6 +584,8 @@ namespace framework
                 // 重設相關參數
                 currentVideoPath = "";
                 currentVideoDuration = 0;
+                timelineOffsetX = 0;
+                timelineTransform.X = 0;
 
                 // 停止播放器並清除來源
                 VideoPlayer.Stop();
