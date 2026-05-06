@@ -34,6 +34,7 @@ namespace framework
         public MainWindow()
         {
             InitializeComponent();
+
             InitializePlayheadTimer(); // 初始化定時器
             // 視窗的 KeyDown 事件 (當鍵盤按鍵被按下時觸發)
             this.KeyDown += MainWindow_KeyDown;
@@ -246,6 +247,21 @@ namespace framework
 
                 // 告訴系統這個按鍵事件已經處理完畢了，不用再往下傳遞
                 e.Handled = true;
+            }
+
+            //初始化預設字卡樣式
+            TxtFontSize.Text = "12";
+            TxtFontColor.Text = "#FFFFFF"; // 預設白色
+            SliderStroke.Value = 0;        // 預設無邊框
+
+            // 設定下拉選單預設選取「新細明體」
+            foreach (ComboBoxItem item in ComboFontFamily.Items)
+            {
+                if (item.Content.ToString() == "新細明體")
+                {
+                    ComboFontFamily.SelectedItem = item;
+                    break;
+                }
             }
         }
 
@@ -552,9 +568,56 @@ namespace framework
             // 原本紀錄文字的邏輯
             StoreSubtitleSettings(textToApply);
 
-            // 自動清空輸入框，方便使用者連續輸入下一個字卡
-            TxtSubtitle.Text = "";
+            MessageBox.Show($"已記錄字卡內容：「{textToApply}」。\n\n(目前為純記錄，後續將把此參數傳遞給 FFmpeg)", "系統訊息");
+            
+            TxtSubtitle.Text = "";  // 自動清空輸入框，方便使用者連續輸入下一個字卡
+        }        
+        
+        private void BtnUpdateStyle_Click(object sender, RoutedEventArgs e)
+        {
+            // 1. 抓取 UI 面板上的設定值
+            string fontColor = TxtFontColor.Text;
+            string fontSize = TxtFontSize.Text;
+
+            // 安全地取得下拉選單選中的字體名稱
+            string fontFamily = (ComboFontFamily.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "Microsoft JhengHei";
+
+            // 2. 實作 Task 1：樣式檢查與轉換邏輯
+            try
+            {
+                // 數字檢查：確保字體大小是合法的數字
+                if (!double.TryParse(fontSize, out double sizeValue) || sizeValue <= 0)
+                {
+                    MessageBox.Show("請輸入正確的字體大小數值！", "輸入錯誤");
+                    return;
+                }
+
+                // 顏色轉換檢查：嘗試將 Hex 碼轉換為 WPF 畫筆
+                var converter = new System.Windows.Media.BrushConverter();
+                // ... 之前的轉換邏輯 ...
+                var brush = (System.Windows.Media.Brush)converter.ConvertFromString(fontColor);
+
+                // --- 新增：套用到畫面的預覽文字 (Task 1 實作細節) ---
+                TxtPreview.Visibility = Visibility.Visible;
+                TxtPreview.Text = TxtSubtitle.Text; // 顯示輸入的內容
+                TxtPreview.FontSize = sizeValue;
+                TxtPreview.Foreground = brush;
+                TxtPreview.FontFamily = new System.Windows.Media.FontFamily(fontFamily);
+
+                // 處理粗細 (FontWeight)
+                string weightStr = (ComboFontWeight.SelectedItem as ComboBoxItem)?.Content?.ToString();
+                TxtPreview.FontWeight = (weightStr == "Bold") ? FontWeights.Bold : FontWeights.Normal;
+
+                // 3. 測試反饋 (確認邏輯有跑通)
+                MessageBox.Show($"樣式已記錄：\n字體：{fontFamily}\n大小：{sizeValue}\n顏色：{fontColor}\n\n(待完成選取功能後即可套用至物件)", "樣式更新成功");
+            }
+            catch
+            {
+                // 如果使用者 Hex 碼亂輸入（例如少一個 # 或長度不對）
+                MessageBox.Show("顏色格式輸入錯誤！請使用如 #FFFFFF 的 Hex 格式。", "顏色錯誤");
+            }
         }
+
 
         // ================= 分頁功能：影像剪輯 =================
 
@@ -724,5 +787,6 @@ namespace framework
 
             MessageBox.Show($"已記錄剪輯指令：\n保留從第 {startTime} 秒 到 第 {endTime} 秒的片段。\n\n(後續輸出時會將此參數交給 FFmpeg 進行裁切)", "剪輯設定");
         }
+
     }
 }
