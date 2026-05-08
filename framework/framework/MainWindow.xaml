@@ -42,9 +42,9 @@
                 </Border>
             </Grid>
 
-            <TabControl Grid.Column="1" Margin="10">
+            <TabControl x:Name="MainTabControl" Grid.Column="1" Margin="10">
 
-                <TabItem Header="📝 字卡設定" FontSize="14">
+                <TabItem Header="📝 字卡設定(F1)" FontSize="14">
                     <StackPanel Margin="15">
                         <TextBlock Text="🎬 字卡設定面板" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
                         <TextBlock Text="請輸入字幕內容：" Margin="0,0,0,5"/>
@@ -99,7 +99,7 @@
                     </StackPanel>
                 </TabItem>
 
-                <TabItem Header="✂️ 影像剪輯" FontSize="14">
+                <TabItem Header="✂️ 影像剪輯 (F2)" FontSize="14">
                     <StackPanel Margin="15">
                         <TextBlock Text="✂️ 剪輯設定面板" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
                         <TextBlock Text="設定剪輯保留區間：" Margin="0,0,0,10"/>
@@ -118,7 +118,7 @@
                     </StackPanel>
                 </TabItem>
 
-                <TabItem Header="🎨 畫面調整" FontSize="14">
+                <TabItem Header="🎨 畫面調整 (F3)" FontSize="14">
                     <StackPanel Margin="15" VerticalAlignment="Center">
                         <TextBlock Text="此區塊未來可放置亮度、對比、濾鏡等設定..." Foreground="Gray" HorizontalAlignment="Center"/>
                     </StackPanel>
