@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Controls.Primitives;
 
 namespace framework
 {
@@ -82,6 +83,19 @@ namespace framework
             // 確保有載入影片且播放器有 NaturalDuration
             if (VideoPlayer.Source != null && VideoPlayer.NaturalDuration.HasTimeSpan)
             {
+                double currentTime = VideoPlayer.Position.TotalSeconds;
+                if (currentTime >= trimEndSeconds)
+                {
+                    // 強制跳回左手把設定的開始時間
+                    VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
+                    VideoPlayer.Play();
+                }
+                // 保險起見：如果因為手動拖拉等原因小於左手把
+                else if (currentTime < trimStartSeconds)
+                {
+                    VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
+                }
+
                 if (!isDraggingPlayhead)
                 {
                     // 取得目前的播放時間
@@ -95,6 +109,29 @@ namespace framework
                 }
             }
         }
+
+        private void PlaybackTimer_Tick(object sender, EventArgs e)
+        {   
+            if (VideoPlayer.Source != null && VideoPlayer.NaturalDuration.HasTimeSpan)
+            {
+                double currentTime = VideoPlayer.Position.TotalSeconds;
+
+                // 問題 2 的核心修正：
+                // 只要當前時間「大於或等於」右手把位置，就立刻彈回左手把
+                if (currentTime >= trimEndSeconds)
+                {
+                    VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
+                    VideoPlayer.Play(); // 確保它是播放狀態
+                }
+
+                // 額外保險：如果使用者手動拉動進度條到左手把之前
+                else if (currentTime < trimStartSeconds)
+                {
+                    VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
+                }
+            }
+        }
+
 
         private void AutoScrollTimer_Tick(object sender, EventArgs e)
         {
@@ -143,23 +180,37 @@ namespace framework
         {
             if (VideoPlayer.Source == null || !VideoPlayer.NaturalDuration.HasTimeSpan) return;
 
-            // 鎖定滑鼠，確保拖曳時即使滑鼠移出畫布外（例如滑到視窗外），也能繼續觸發 MouseMove
+            // 鎖定滑鼠，確保拖曳時即使滑鼠移出畫布外，也能繼續觸發 MouseMove
             if (sender is UIElement element)
             {
+                // 取得點擊位置的 X 座標
                 double clickX = e.GetPosition(element).X;
+
+                // --- 關鍵修正：範圍限制 (Clamp) ---
+                // 假設 1 秒 = 20 像素，計算合法範圍的像素邊界
+                double minX = trimStartSeconds * 20;
+                double maxX = trimEndSeconds * 20;
+
+                // 如果點擊的位置在框框外，強制將數值拉回邊界
+                if (clickX < minX) clickX = minX;
+                if (clickX > maxX) clickX = maxX;
 
                 // 判斷邏輯：
                 // 1. 如果點在時間刻度區 (TimeRulerCanvas)，隨意點擊都能跳轉並拖曳
                 bool isClickingOnRuler = sender == TimeRulerCanvas;
 
                 // 2. 如果點在影像軌道區 (VideoTrackCanvas)，必須點在「紅線附近 (誤差 +- 10 像素)」，才能拖拉游標
+                // 注意：這裡的 PlayheadLine.X1 也要在範圍內
                 bool isClickingNearPlayhead = Math.Abs(clickX - PlayheadLine.X1) <= 10;
 
                 if (isClickingOnRuler || isClickingNearPlayhead)
                 {
                     isDraggingPlayhead = true;
-                    element.CaptureMouse(); // 鎖定滑鼠，確保游標滑到視窗外也不會中斷
+                    element.CaptureMouse(); // 鎖定滑鼠
+
+                    // 取得目前負責更新紅線的計時器狀態 (假設名稱為 playheadTimer)
                     wasPlayingBeforeDrag = playheadTimer.IsEnabled;
+
                     if (wasPlayingBeforeDrag)
                     {
                         VideoPlayer.Pause();
@@ -169,7 +220,9 @@ namespace framework
                     // 開始拖曳時 啟動自動捲動計時器
                     autoScrollTimer.Start();
 
+                    // 使用「限制後」的座標來更新位置，確保紅線不越界
                     UpdatePlayheadPosition(clickX);
+
                     // 攔截事件 防止點擊穿透到影片區塊引發選取白框的邏輯
                     e.Handled = true;
                 }
@@ -205,7 +258,7 @@ namespace framework
 
         private void UpdatePlayheadPosition(double mouseX)
         {
-            // 防呆：確保獲取到正確的影片總長度，避免被當成 0 秒處理
+            // 防呆：確保獲取到正確的影片總長度
             double duration = currentVideoDuration;
             if (duration <= 0 && VideoPlayer.NaturalDuration.HasTimeSpan)
             {
@@ -213,19 +266,26 @@ namespace framework
                 currentVideoDuration = duration;
             }
 
-            if (duration <= 0) return; // 雙重防呆
+            if (duration <= 0) return; 
 
-            // 1. 確保游標被限制在 0 到 影片結尾 之間
-            if (mouseX < 0) mouseX = 0;
-            double maxX = duration * PIXELS_PER_SECOND;
+            // --- 關鍵修正：將範圍限制在剪輯區間內 ---
+            // 計算左手把與右手把對應的像素位置
+            double minX = trimStartSeconds * PIXELS_PER_SECOND;
+            double maxX = trimEndSeconds * PIXELS_PER_SECOND;
+
+            // 確保游標被限制在 [左手把, 右手把] 之間
+            if (mouseX < minX) mouseX = minX;
             if (mouseX > maxX) mouseX = maxX;
 
-            // 2. 即時更新紅線的視覺位置
+            // 1. 即時更新紅線的視覺位置 (此時 mouseX 已經是被限制過的安全值)
             PlayheadLine.X1 = mouseX;
             PlayheadLine.X2 = mouseX;
 
-            // 3. 計算拖曳到的時間點，並同步更新影片進度 (此時影片依然在播放)
+            // 2. 計算拖曳到的時間點
             double targetSeconds = mouseX / PIXELS_PER_SECOND;
+
+            // 3. 同步更新影片進度
+            // 使用限制後的 targetSeconds，確保影片畫面不會跑出區間
             VideoPlayer.Position = TimeSpan.FromSeconds(targetSeconds);
         }
 
@@ -322,18 +382,30 @@ namespace framework
             double pixelPerSecond = 20;
             double totalWidth = durationInSeconds * pixelPerSecond;
 
-            // 關鍵修正 1：主動設定 Canvas 的寬度，ScrollViewer 才會出現捲軸
+            trimStartSeconds = 0;
+            trimEndSeconds = durationInSeconds;
+            TxtStartTime.Text = "0.0";
+            TxtEndTime.Text = durationInSeconds.ToString("F1");
+
+            // 設定畫布與容器寬度
             VideoTrackCanvas.Width = totalWidth;
             TimeRulerCanvas.Width = totalWidth;
-            TimelineContentStack.Width = totalWidth + 100; // 留一點右側空白
+            TimelineContentStack.Width = totalWidth + 100;
 
-            // 關鍵修正 2：確保 Canvas 內的物件從 0 開始
             VideoTrackCanvas.Children.Clear();
 
-            System.Windows.Shapes.Rectangle videoSegment = new System.Windows.Shapes.Rectangle
+            // 1. 建立容器 Grid，用來包裹影片矩形與左右拖動手把
+            Grid segmentContainer = new Grid
             {
                 Width = totalWidth,
                 Height = 35,
+                Tag = "VideoSegment"
+            };
+
+            // 2. 建立影片主體矩形
+            System.Windows.Shapes.Rectangle videoSegment = new System.Windows.Shapes.Rectangle
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
                 Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204)),
                 Stroke = System.Windows.Media.Brushes.Transparent,
                 StrokeThickness = 2,
@@ -342,30 +414,121 @@ namespace framework
             };
 
             videoSegment.MouseDown += VideoSegment_MouseDown;
+            segmentContainer.Children.Add(videoSegment);
 
-            Canvas.SetLeft(videoSegment, 0); // 確保對齊標尺 0 刻度
+            // 建立左側手把
+            Thumb leftHandle = new Thumb
+            {
+                Width = 8,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Cursor = Cursors.SizeWE,
+                Background = Brushes.White,
+                Opacity = 0
+            };
+            leftHandle.DragDelta += LeftHandle_DragDelta;
+            // 新增：開始拖動時暫停
+            leftHandle.DragStarted += (s, e) => VideoPlayer.Pause();
+            // 新增：結束拖動時播放
+            leftHandle.DragCompleted += (s, e) => VideoPlayer.Play();
 
-            // 將影像軌往下移到 Top=45，把上方的空間留給字卡
-            Canvas.SetTop(videoSegment, 45);
+            // 建立右側手把
+                Thumb rightHandle = new Thumb
+            {
+                Width = 8,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Cursor = Cursors.SizeWE,
+                Background = Brushes.White,
+                Opacity = 0
+            };
+            rightHandle.DragDelta += RightHandle_DragDelta;
+            // 新增：開始拖動時暫停
+            rightHandle.DragStarted += (s, e) => VideoPlayer.Pause();
+            // 新增：結束拖動時播放
+            rightHandle.DragCompleted += (s, e) => VideoPlayer.Play();
 
-            VideoTrackCanvas.Children.Add(videoSegment);
+
+            segmentContainer.Children.Add(leftHandle);
+            segmentContainer.Children.Add(rightHandle);
+
+            // 5. 設定在 Canvas 上的位置
+            Canvas.SetLeft(segmentContainer, 0); 
+            Canvas.SetTop(segmentContainer, 45); // 維持在影像軌高度
+
+            VideoTrackCanvas.Children.Add(segmentContainer);
+        }
+
+        // 處理左側拖動 (改變位置 + 改變寬度)
+        private void LeftHandle_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
+        {
+            if (sender is FrameworkElement thumb && thumb.Parent is Grid container)
+            {
+                double currentLeft = Canvas.GetLeft(container);
+                double newLeft = currentLeft + e.HorizontalChange;
+                double newWidth = container.Width - e.HorizontalChange;
+
+                if (newWidth > 10 && newLeft >= 0)
+                {
+                    Canvas.SetLeft(container, newLeft);
+                    container.Width = newWidth;
+
+                    trimStartSeconds = newLeft / 20; 
+                    TxtStartTime.Text = trimStartSeconds.ToString("F1");
+
+                    // 2. 關鍵：如果目前的播放位置比新的起點還早，立刻把影片跳到新起點
+                    if (VideoPlayer.Position.TotalSeconds < trimStartSeconds)
+                    {
+                        VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
+                    }
+                }
+            }
+        }
+
+        // 處理右側拖動 (僅改變寬度)
+        private void RightHandle_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
+        {
+            if (sender is FrameworkElement thumb && thumb.Parent is Grid container)
+            {
+                double newWidth = container.Width + e.HorizontalChange;
+                double currentLeft = Canvas.GetLeft(container);
+
+                if (newWidth > 10)
+                {
+                    container.Width = newWidth;
+
+                    trimEndSeconds = (currentLeft + newWidth) / 20;
+                    TxtEndTime.Text = trimEndSeconds.ToString("F1");
+
+                    // 2. 關鍵：如果目前的播放位置已經超過新的終點，立刻跳回起點
+                    if (VideoPlayer.Position.TotalSeconds > trimEndSeconds)
+                    {
+                        VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
+                    }
+                }
+            }
         }
 
         private void VideoSegment_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            // 先取消所有人的選取
             ClearSelection();
 
+            // sender 是 Rectangle，它的 Parent 是 Grid
             if (sender is System.Windows.Shapes.Rectangle rect)
             {
-                rect.Stroke = System.Windows.Media.Brushes.White; // 變白框
+                rect.Stroke = System.Windows.Media.Brushes.White;
                 rect.StrokeThickness = 2;
-            }
 
-            // 標記事件已處理，不讓滑鼠點擊事件「穿透」到下層的 VideoTrackCanvas
+                // 讓手把顯示出來（選取時才看得到手把，這很專業）
+                if (rect.Parent is Grid parentGrid)
+                {
+                    foreach (var child in parentGrid.Children)
+                    {
+                        if (child is System.Windows.Controls.Primitives.Thumb thumb)
+                            thumb.Opacity = 0.5; // 半透明灰色手把
+                    }
+                }
+            }
             e.Handled = true;
         }
-
         private void VideoTrackCanvas_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             ClearSelection();
@@ -376,13 +539,16 @@ namespace framework
         {
             foreach (var child in VideoTrackCanvas.Children)
             {
-                if (child is System.Windows.Shapes.Rectangle rect)
+                if (child is Grid grid)
                 {
-                    rect.Stroke = System.Windows.Media.Brushes.Transparent;
-                }
-                else if (child is Border border)
-                {
-                    border.BorderBrush = System.Windows.Media.Brushes.Transparent;
+                    foreach (var inner in grid.Children)
+                    {
+                        if (inner is System.Windows.Shapes.Rectangle rect)
+                            rect.Stroke = System.Windows.Media.Brushes.Transparent;
+
+                        if (inner is System.Windows.Controls.Primitives.Thumb thumb)
+                            thumb.Opacity = 0; // 隱藏手把
+                    }
                 }
             }
         }
