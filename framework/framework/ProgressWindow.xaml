@@ -1,0 +1,42 @@
+<Window x:Class="framework.ProgressWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="影片匯出中" Height="220" Width="500" WindowStartupLocation="CenterOwner" 
+        ResizeMode="NoResize" ShowInTaskbar="False" WindowStyle="None" Background="#F5F5F5">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 標題 -->
+        <TextBlock Grid.Row="0" Text="影片匯出進度" FontSize="14" FontWeight="Bold" Margin="0,0,0,15"/>
+
+        <!-- 任務描述 -->
+        <TextBlock Grid.Row="1" Name="TxtStatus" Text="正在準備..." FontSize="11" Foreground="#333333" Margin="0,0,0,10"/>
+
+        <!-- 進度條 -->
+        <ProgressBar Grid.Row="2" Name="ProgressBar" Height="20" Margin="0,0,0,10" 
+                     Background="#E8E8E8" Foreground="#007ACC" />
+
+        <!-- 百分比 -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Name="TxtProgress" Text="0%" FontSize="11" FontWeight="Bold" Width="50"/>
+            <TextBlock Name="TxtTimeElapsed" Text="已用時間：0 秒" FontSize="10" Foreground="#666666" Margin="20,0,0,0"/>
+            <TextBlock Name="TxtTimeRemaining" Text="估計剩餘：計算中..." FontSize="10" Foreground="#666666" Margin="20,0,0,0"/>
+        </StackPanel>
+
+        <!-- 詳細信息 -->
+        <TextBlock Grid.Row="4" Name="TxtDetails" Text="" FontSize="10" Foreground="#999999" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+        <!-- 按鈕 -->
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+            <Button Name="BtnCancel" Content="取消" Width="80" Click="BtnCancel_Click" 
+                    Background="#F0F0F0" Padding="10,5"/>
+        </StackPanel>
+    </Grid>
+</Window>

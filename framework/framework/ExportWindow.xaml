@@ -73,7 +73,7 @@
                     <TextBlock Text="（可選）" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="10" Foreground="#999999"/>
                 </StackPanel>
 
-                <CheckBox Name="ChkFastStart" Content="網路最佳化/快速啟動" Margin="0,6" ToolTip="讓影片在網路播放時更快開始"/>
+                <CheckBox Name="ChkFastStart" Content="網路播放最佳化/快速啟動" Margin="0,6" ToolTip="讓影片在網路播放時更快開始"/>
             </StackPanel>
         </GroupBox>
 
