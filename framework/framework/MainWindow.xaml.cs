@@ -38,9 +38,10 @@ namespace framework
         private bool isDraggingTextSegment = false;
         private double textDragStartMouseX = 0;
         private double textDragStartLeft = 0;
-
         private Point segmentDragStartPoint;
         private double segmentStartLeft;
+
+        //================== 影片片段資料結構 =================
         public class VideoSegmentData
         {
             public Guid Id { get; set; } = Guid.NewGuid(); // 唯一識別碼
@@ -221,8 +222,7 @@ namespace framework
                 }
             }
         }
-
-        // 時間軸游標拖曳功能
+        // ================= 時間軸游標拖曳功能 =================
         private bool wasPlayingBeforeDrag = false; // 紀錄拖曳前是否正在播放
         private int lastScrubTick = 0; // 紀錄上一次更新畫面的時間點
         private void Timeline_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -361,7 +361,7 @@ namespace framework
                 return;
             }
         }
-
+        // ================= 快捷鍵功能 =================
         private void MainWindow_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             if (e.Key == Key.F1)
@@ -380,6 +380,18 @@ namespace framework
             {
                 // 切換到「🎨 畫面調整」
                 MainTabControl.SelectedIndex = 2;
+                e.Handled = true;
+            }
+            
+            if (e.Key == Key.V)
+            {
+                SetEditorTool(EditorTool.Select);
+                e.Handled = true;
+            }
+
+            if (e.Key == Key.C) 
+            {   
+                SetEditorTool(EditorTool.Scissors);
                 e.Handled = true;
             }
         
@@ -416,6 +428,24 @@ namespace framework
                 }
             }
         }
+
+        private void SetEditorTool(EditorTool tool)
+        {
+            currentTool = tool;
+
+            if (tool == EditorTool.Select)
+            {
+                this.Cursor = Cursors.Arrow;
+                // 假設你的選取 RadioButton 叫做 RadioSelect
+                if (ToolSelect != null) ToolSelect.IsChecked = true; 
+            }
+            else if (tool == EditorTool.Scissors)
+            {
+                this.Cursor = Cursors.Cross;
+                // 假設你的剪刀 RadioButton 叫做 RadioScissors
+                if (ToolRazor != null) ToolRazor.IsChecked = true;
+            }
+}
 
         // ================= 工具列功能 =================
 
@@ -652,39 +682,59 @@ namespace framework
             ClearSelection();
 
             // 1. 確認點擊的是影片矩形 (Rectangle)
-            if (sender is System.Windows.Shapes.Rectangle rect)
+            if (sender is System.Windows.Shapes.Rectangle rect && rect.Parent is Grid parentGrid)
             {
-                // 2. 矩形的 Parent 就是包裹它的 Grid (也就是我們在 AddVideoToTimeline 建立的物件)
-                if (rect.Parent is Grid parentGrid)
+                // 從清單中找到對應的資料物件
+                var segment = videoSegments.FirstOrDefault(s => s.UIElement == parentGrid);
+                if (segment == null) return;
+
+                // --- 剪刀工具邏輯 ---
+                if (currentTool == EditorTool.Scissors)
                 {
-                    rect.Stroke = System.Windows.Media.Brushes.White;
-                    rect.StrokeThickness = 2;
+                    // 取得點擊在時間軸畫布上的 X 座標
+                    double clickX = e.GetPosition(VideoTrackCanvas).X;
+                    double splitTime = clickX / PIXELS_PER_SECOND;
 
-                    // 顯示手把 (選取效果)
-                    foreach (var child in parentGrid.Children)
-                    {
-                        if (child is System.Windows.Controls.Primitives.Thumb thumb)
-                            thumb.Opacity = 0.5;
-                    }
+                    // 執行分割 (呼叫先前寫好的 SplitSegment 方法)
+                    SplitSegment(segment, splitTime);
 
-                    // 3. 開始整體拖移邏輯：記錄起始狀態
-                    isDraggingSegment = true;
-
-                    // 取得目前的滑鼠位置 (相對於畫布)
-                    Point currentPos = e.GetPosition(VideoTrackCanvas);
-                    segmentDragStartPoint = currentPos;
-                    segmentDragStartMouseX = currentPos.X;
-
-                    // 【修正點】：使用 parentGrid 來獲取當前的 Left 位置，並存入 segmentStartLeft
-                    segmentDragStartLeft = Canvas.GetLeft(parentGrid);
-                    segmentStartLeft = segmentDragStartLeft; // 確保與 MouseUp 判斷用的變數同步
-
-                    segmentDragTrimDuration = trimEndSeconds - trimStartSeconds; // 保存框框寬度（秒）
-
-                    // 擷取滑鼠，確保移出方塊外也能繼續拖動
-                    parentGrid.CaptureMouse();
+                    e.Handled = true;
+                    return;
                 }
+
+                // --- 原有的選取與拖移邏輯 ---
+                selectedSegment = segment; // 設定目前選中的物件
+
+                // 視覺效果：白框與手把
+                rect.Stroke = System.Windows.Media.Brushes.White;
+                rect.StrokeThickness = 2;
+
+                foreach (var child in parentGrid.Children)
+                {
+                    if (child is System.Windows.Controls.Primitives.Thumb thumb)
+                        thumb.Opacity = 0.5;
+                }
+
+                // 記錄起始狀態供拖移使用
+                isDraggingSegment = true;
+                Point currentPos = e.GetPosition(VideoTrackCanvas);
+                segmentDragStartPoint = currentPos;
+                segmentDragStartMouseX = currentPos.X;
+
+                // 使用 parentGrid 獲取當前 Left 位置
+                segmentDragStartLeft = Canvas.GetLeft(parentGrid);
+                segmentStartLeft = segmentDragStartLeft; 
+
+                // 從物件中獲取長度，不再依賴全域變數
+                segmentDragTrimDuration = segment.Duration; 
+
+                // 同步 UI 文字框
+                TxtStartTime.Text = segment.TimelineStart.ToString("F1");
+                TxtEndTime.Text = (segment.TimelineStart + segment.Duration).ToString("F1");
+
+                parentGrid.CaptureMouse();
             }
+
             e.Handled = true;
         }
         private void VideoTrackCanvas_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -1344,6 +1394,35 @@ namespace framework
             VideoPlayer.Position = TimeSpan.FromSeconds(startTime);
             MessageBox.Show($"已設定剪輯：{startTime:F1}秒 ~ {endTime:F1}秒", "系統訊息");
         }
+        // 切割片段
+        private void SplitSegment(VideoSegmentData segment, double splitPointSeconds)
+        {
+            // 1. 計算原片段的相對切點
+            double relativeSplitTime = splitPointSeconds - segment.TimelineStart;
 
+            // 2. 建立後半段的新資料物件
+            VideoSegmentData nextSegment = new VideoSegmentData
+            {
+                TimelineStart = splitPointSeconds,
+                InternalOffset = segment.InternalOffset + relativeSplitTime,
+                Duration = segment.Duration - relativeSplitTime
+            };
+
+            // 3. 修改前半段的長度
+            segment.Duration = relativeSplitTime;
+
+            // 4. 更新前半段的 UI 寬度
+            segment.UIElement.Width = segment.Duration * PIXELS_PER_SECOND;
+
+            // 5. 建立後半段的 UI 並加入畫布
+            Grid nextGrid = CreateSegmentUI(nextSegment);
+            nextSegment.UIElement = nextGrid;
+
+            videoSegments.Add(nextSegment);
+            VideoTrackCanvas.Children.Add(nextGrid);
+
+            // 6. 預覽位置跳轉到切點
+            VideoPlayer.Position = TimeSpan.FromSeconds(splitPointSeconds);
+        }
     }
 }
