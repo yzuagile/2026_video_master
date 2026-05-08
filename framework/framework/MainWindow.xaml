@@ -48,9 +48,9 @@
                 </Border>
             </Grid>
 
-            <TabControl Grid.Column="1" Margin="10">
+            <TabControl x:Name="MainTabControl" Grid.Column="1" Margin="10">
 
-                <TabItem Header="📝 字卡設定" FontSize="14">
+                <TabItem Header="📝 字卡設定(F1)" FontSize="14">
                     <StackPanel Margin="15">
                         <TextBlock Text="🎬 字卡設定面板" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
                         <TextBlock Text="請輸入字幕內容：" Margin="0,0,0,5"/>
@@ -105,7 +105,7 @@
                     </StackPanel>
                 </TabItem>
 
-                <TabItem Header="✂️ 影像剪輯" FontSize="14">
+                <TabItem Header="✂️ 影像剪輯 (F2)" FontSize="14">
                     <StackPanel Margin="15">
                         <TextBlock Text="✂️ 剪輯設定面板" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
                         <TextBlock Text="設定剪輯保留區間：" Margin="0,0,0,10"/>
@@ -124,7 +124,7 @@
                     </StackPanel>
                 </TabItem>
 
-                <TabItem Header="🎨 畫面調整" FontSize="14">
+                <TabItem Header="🎨 畫面調整 (F3)" FontSize="14">
                     <StackPanel Margin="15" VerticalAlignment="Center">
                         <TextBlock Text="此區塊未來可放置亮度、對比、濾鏡等設定..." Foreground="Gray" HorizontalAlignment="Center"/>
                     </StackPanel>
@@ -144,8 +144,8 @@
                         <Button Name="BtnPlay" Content="▶ 播放" Margin="5" Padding="15,2" Background="#4CAF50" Foreground="White" BorderThickness="0" Cursor="Hand" Click="BtnPlay_Click"/>
                         <Button Name="BtnPause" Content="⏸ 暫停" Margin="0,5,15,5" Padding="15,2" Background="#FF9800" Foreground="White" BorderThickness="0" Cursor="Hand" Click="BtnPause_Click"/>
                         
-                        <RadioButton Name="ToolSelect" Content="🏹 選取 (V)" IsChecked="True" Margin="5" Foreground="White" VerticalAlignment="Center"/>
-                        <RadioButton Name="ToolRazor" Content="✂️ 剪刀 (C)" Margin="5" Foreground="White" VerticalAlignment="Center"/>
+                        <RadioButton Name="RadioSelect" Content="🏹 選取 (V)" IsChecked="True" Margin="5" Foreground="White" VerticalAlignment="Center" Checked="ToolRadioButton_Checked" Tag="Select"/>
+                        <RadioButton Name="RadioScissors" Content="✂️ 剪刀 (C)" Margin="5" Foreground="White" VerticalAlignment="Center" Checked="ToolRadioButton_Checked" Tag="Scissors"/>
                         <Button x:Name="BtnDelete" Content="✖ 刪除 (Del)" Click="BtnDelete_Click" 
                                 Margin="10,5,5,5" Padding="10,0" 
                                 Background="Transparent" Foreground="White" BorderThickness="0" 
