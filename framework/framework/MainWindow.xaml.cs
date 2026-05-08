@@ -32,6 +32,15 @@ namespace framework
         private TranslateTransform timelineTransform = new TranslateTransform();
         private double timelineOffsetX = 0;
 
+        // 藍色框框整體拖移
+        private bool isDraggingSegment = false;
+        private double segmentDragStartMouseX = 0;
+        private double segmentDragStartLeft = 0;
+        private double segmentDragTrimDuration = 0; // 拖移前的框框寬度（秒），保持不變
+
+        private Point segmentDragStartPoint;
+        private double segmentStartLeft;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -84,26 +93,25 @@ namespace framework
             if (VideoPlayer.Source != null && VideoPlayer.NaturalDuration.HasTimeSpan)
             {
                 double currentTime = VideoPlayer.Position.TotalSeconds;
-                if (currentTime >= trimEndSeconds)
+
+                if (!isDraggingSegment)
                 {
-                    // 強制跳回左手把設定的開始時間
-                    VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
-                    VideoPlayer.Play();
-                }
-                // 保險起見：如果因為手動拖拉等原因小於左手把
-                else if (currentTime < trimStartSeconds)
-                {
-                    VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
+                    if (currentTime >= trimEndSeconds)
+                    {
+                        // 播到 trimEnd：停止並跳回 trimStart
+                        VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
+                    }
+                    else if (currentTime < trimStartSeconds)
+                    {
+                        // 紅線在框框左側：跳到 trimStart 開始播
+                        VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
+                    }
                 }
 
                 if (!isDraggingPlayhead)
                 {
-                    // 取得目前的播放時間
                     double currentPositionSeconds = VideoPlayer.Position.TotalSeconds;
-                    // 計算在畫布上的 X 座標：時間 (秒) * 每一秒代表的像素
                     double xPosition = currentPositionSeconds * PIXELS_PER_SECOND;
-
-                    // 更新紅線的位置
                     PlayheadLine.X1 = xPosition;
                     PlayheadLine.X2 = xPosition;
                 }
@@ -116,18 +124,11 @@ namespace framework
             {
                 double currentTime = VideoPlayer.Position.TotalSeconds;
 
-                // 問題 2 的核心修正：
-                // 只要當前時間「大於或等於」右手把位置，就立刻彈回左手把
-                if (currentTime >= trimEndSeconds)
+                if (!isDraggingSegment && currentTime >= trimEndSeconds)
                 {
-                    VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
-                    VideoPlayer.Play(); // 確保它是播放狀態
-                }
-
-                // 額外保險：如果使用者手動拉動進度條到左手把之前
-                else if (currentTime < trimStartSeconds)
-                {
-                    VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
+                    VideoPlayer.Stop();
+                    VideoPlayer.Position = TimeSpan.FromSeconds(0);
+                    playheadTimer.Stop();
                 }
             }
         }
@@ -186,21 +187,11 @@ namespace framework
                 // 取得點擊位置的 X 座標
                 double clickX = e.GetPosition(element).X;
 
-                // --- 關鍵修正：範圍限制 (Clamp) ---
-                // 假設 1 秒 = 20 像素，計算合法範圍的像素邊界
-                double minX = trimStartSeconds * 20;
-                double maxX = trimEndSeconds * 20;
-
-                // 如果點擊的位置在框框外，強制將數值拉回邊界
-                if (clickX < minX) clickX = minX;
-                if (clickX > maxX) clickX = maxX;
-
                 // 判斷邏輯：
                 // 1. 如果點在時間刻度區 (TimeRulerCanvas)，隨意點擊都能跳轉並拖曳
                 bool isClickingOnRuler = sender == TimeRulerCanvas;
 
                 // 2. 如果點在影像軌道區 (VideoTrackCanvas)，必須點在「紅線附近 (誤差 +- 10 像素)」，才能拖拉游標
-                // 注意：這裡的 PlayheadLine.X1 也要在範圍內
                 bool isClickingNearPlayhead = Math.Abs(clickX - PlayheadLine.X1) <= 10;
 
                 if (isClickingOnRuler || isClickingNearPlayhead)
@@ -266,18 +257,9 @@ namespace framework
                 currentVideoDuration = duration;
             }
 
-            if (duration <= 0) return; 
+            if (duration <= 0) return;
 
-            // --- 關鍵修正：將範圍限制在剪輯區間內 ---
-            // 計算左手把與右手把對應的像素位置
-            double minX = trimStartSeconds * PIXELS_PER_SECOND;
-            double maxX = trimEndSeconds * PIXELS_PER_SECOND;
-
-            // 確保游標被限制在 [左手把, 右手把] 之間
-            if (mouseX < minX) mouseX = minX;
-            if (mouseX > maxX) mouseX = maxX;
-
-            // 1. 即時更新紅線的視覺位置 (此時 mouseX 已經是被限制過的安全值)
+            // 1. 即時更新紅線的視覺位置
             PlayheadLine.X1 = mouseX;
             PlayheadLine.X2 = mouseX;
 
@@ -285,7 +267,6 @@ namespace framework
             double targetSeconds = mouseX / PIXELS_PER_SECOND;
 
             // 3. 同步更新影片進度
-            // 使用限制後的 targetSeconds，確保影片畫面不會跑出區間
             VideoPlayer.Position = TimeSpan.FromSeconds(targetSeconds);
         }
 
@@ -379,44 +360,57 @@ namespace framework
 
         private void AddVideoToTimeline(double durationInSeconds)
         {
-            double pixelPerSecond = 20;
-            double totalWidth = durationInSeconds * pixelPerSecond;
+            double totalWidth = durationInSeconds * PIXELS_PER_SECOND;
 
             trimStartSeconds = 0;
             trimEndSeconds = durationInSeconds;
+            segmentDragTrimDuration = durationInSeconds;
             TxtStartTime.Text = "0.0";
             TxtEndTime.Text = durationInSeconds.ToString("F1");
 
-            // 設定畫布與容器寬度
             VideoTrackCanvas.Width = totalWidth;
             TimeRulerCanvas.Width = totalWidth;
             TimelineContentStack.Width = totalWidth + 100;
 
             VideoTrackCanvas.Children.Clear();
 
-            // 1. 建立容器 Grid，用來包裹影片矩形與左右拖動手把
+            // ── 1. 灰色底層：代表完整影片，固定不動 ──
+            System.Windows.Shapes.Rectangle fullVideoBar = new System.Windows.Shapes.Rectangle
+            {
+                Width = totalWidth,
+                Height = 35,
+                Fill = new SolidColorBrush(Color.FromRgb(80, 80, 80)),
+                RadiusX = 3,
+                RadiusY = 3,
+                IsHitTestVisible = false
+            };
+            Canvas.SetLeft(fullVideoBar, 0);
+            Canvas.SetTop(fullVideoBar, 45);
+            VideoTrackCanvas.Children.Add(fullVideoBar);
+
+            // ── 2. 藍色框框容器：輸出範圍標記，可縮短 / 移動，隨時可還原 ──
             Grid segmentContainer = new Grid
             {
                 Width = totalWidth,
                 Height = 35,
-                Tag = "VideoSegment"
+                Tag = "VideoSegment",
+                Cursor = Cursors.SizeAll
             };
 
-            // 2. 建立影片主體矩形
+            // 藍色主體矩形
             System.Windows.Shapes.Rectangle videoSegment = new System.Windows.Shapes.Rectangle
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204)),
-                Stroke = System.Windows.Media.Brushes.Transparent,
+                Fill = new SolidColorBrush(Color.FromRgb(0, 122, 204)),
+                Stroke = Brushes.Transparent,
                 StrokeThickness = 2,
                 RadiusX = 3,
                 RadiusY = 3
             };
-
             videoSegment.MouseDown += VideoSegment_MouseDown;
             segmentContainer.Children.Add(videoSegment);
 
-            // 建立左側手把
+            // 左側手把
             Thumb leftHandle = new Thumb
             {
                 Width = 8,
@@ -426,13 +420,11 @@ namespace framework
                 Opacity = 0
             };
             leftHandle.DragDelta += LeftHandle_DragDelta;
-            // 新增：開始拖動時暫停
             leftHandle.DragStarted += (s, e) => VideoPlayer.Pause();
-            // 新增：結束拖動時播放
             leftHandle.DragCompleted += (s, e) => VideoPlayer.Play();
 
-            // 建立右側手把
-                Thumb rightHandle = new Thumb
+            // 右側手把
+            Thumb rightHandle = new Thumb
             {
                 Width = 8,
                 HorizontalAlignment = HorizontalAlignment.Right,
@@ -441,23 +433,22 @@ namespace framework
                 Opacity = 0
             };
             rightHandle.DragDelta += RightHandle_DragDelta;
-            // 新增：開始拖動時暫停
             rightHandle.DragStarted += (s, e) => VideoPlayer.Pause();
-            // 新增：結束拖動時播放
             rightHandle.DragCompleted += (s, e) => VideoPlayer.Play();
-
 
             segmentContainer.Children.Add(leftHandle);
             segmentContainer.Children.Add(rightHandle);
 
-            // 5. 設定在 Canvas 上的位置
-            Canvas.SetLeft(segmentContainer, 0); 
-            Canvas.SetTop(segmentContainer, 45); // 維持在影像軌高度
+            // 整體拖移事件
+            segmentContainer.MouseMove += VideoSegment_MouseMove;
+            segmentContainer.MouseLeftButtonUp += VideoSegment_MouseUp;
 
+            Canvas.SetLeft(segmentContainer, 0);
+            Canvas.SetTop(segmentContainer, 45);
             VideoTrackCanvas.Children.Add(segmentContainer);
         }
 
-        // 處理左側拖動 (改變位置 + 改變寬度)
+        // 處理左側拖動：非破壞性，只移動標記，可以隨時還原
         private void LeftHandle_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
         {
             if (sender is FrameworkElement thumb && thumb.Parent is Grid container)
@@ -466,24 +457,24 @@ namespace framework
                 double newLeft = currentLeft + e.HorizontalChange;
                 double newWidth = container.Width - e.HorizontalChange;
 
+                // 左邊界：不超過灰色底層左側（0）；右邊界：框框最小寬度 10px
                 if (newWidth > 10 && newLeft >= 0)
                 {
                     Canvas.SetLeft(container, newLeft);
                     container.Width = newWidth;
 
-                    trimStartSeconds = newLeft / 20; 
+                    trimStartSeconds = newLeft / PIXELS_PER_SECOND;
                     TxtStartTime.Text = trimStartSeconds.ToString("F1");
+                    segmentDragTrimDuration = trimEndSeconds - trimStartSeconds;
 
-                    // 2. 關鍵：如果目前的播放位置比新的起點還早，立刻把影片跳到新起點
                     if (VideoPlayer.Position.TotalSeconds < trimStartSeconds)
-                    {
                         VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
-                    }
                 }
+                
             }
         }
 
-        // 處理右側拖動 (僅改變寬度)
+        // 處理右側拖動：非破壞性，只移動標記，可以隨時還原
         private void RightHandle_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
         {
             if (sender is FrameworkElement thumb && thumb.Parent is Grid container)
@@ -491,18 +482,18 @@ namespace framework
                 double newWidth = container.Width + e.HorizontalChange;
                 double currentLeft = Canvas.GetLeft(container);
 
-                if (newWidth > 10)
+                // 右邊界：不超過灰色底層右側（影片總長）；最小寬度 10px
+                double maxEnd = currentVideoDuration * PIXELS_PER_SECOND;
+                if (newWidth > 10 && (currentLeft + newWidth) <= maxEnd)
                 {
                     container.Width = newWidth;
 
-                    trimEndSeconds = (currentLeft + newWidth) / 20;
+                    trimEndSeconds = (currentLeft + newWidth) / PIXELS_PER_SECOND;
                     TxtEndTime.Text = trimEndSeconds.ToString("F1");
+                    segmentDragTrimDuration = trimEndSeconds - trimStartSeconds;
 
-                    // 2. 關鍵：如果目前的播放位置已經超過新的終點，立刻跳回起點
                     if (VideoPlayer.Position.TotalSeconds > trimEndSeconds)
-                    {
                         VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
-                    }
                 }
             }
         }
@@ -511,20 +502,38 @@ namespace framework
         {
             ClearSelection();
 
-            // sender 是 Rectangle，它的 Parent 是 Grid
+            // 1. 確認點擊的是影片矩形 (Rectangle)
             if (sender is System.Windows.Shapes.Rectangle rect)
             {
-                rect.Stroke = System.Windows.Media.Brushes.White;
-                rect.StrokeThickness = 2;
-
-                // 讓手把顯示出來（選取時才看得到手把，這很專業）
+                // 2. 矩形的 Parent 就是包裹它的 Grid (也就是我們在 AddVideoToTimeline 建立的物件)
                 if (rect.Parent is Grid parentGrid)
                 {
+                    rect.Stroke = System.Windows.Media.Brushes.White;
+                    rect.StrokeThickness = 2;
+
+                    // 顯示手把 (選取效果)
                     foreach (var child in parentGrid.Children)
                     {
                         if (child is System.Windows.Controls.Primitives.Thumb thumb)
-                            thumb.Opacity = 0.5; // 半透明灰色手把
+                            thumb.Opacity = 0.5;
                     }
+
+                    // 3. 開始整體拖移邏輯：記錄起始狀態
+                    isDraggingSegment = true;
+
+                    // 取得目前的滑鼠位置 (相對於畫布)
+                    Point currentPos = e.GetPosition(VideoTrackCanvas);
+                    segmentDragStartPoint = currentPos;
+                    segmentDragStartMouseX = currentPos.X;
+
+                    // 【修正點】：使用 parentGrid 來獲取當前的 Left 位置，並存入 segmentStartLeft
+                    segmentDragStartLeft = Canvas.GetLeft(parentGrid);
+                    segmentStartLeft = segmentDragStartLeft; // 確保與 MouseUp 判斷用的變數同步
+
+                    segmentDragTrimDuration = trimEndSeconds - trimStartSeconds; // 保存框框寬度（秒）
+
+                    // 擷取滑鼠，確保移出方塊外也能繼續拖動
+                    parentGrid.CaptureMouse();
                 }
             }
             e.Handled = true;
@@ -532,6 +541,67 @@ namespace framework
         private void VideoTrackCanvas_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             ClearSelection();
+        }
+
+        // 整體拖移：MouseMove
+        private void VideoSegment_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (!isDraggingSegment) return;
+            if (sender is Grid container)
+            {
+                double currentMouseX = e.GetPosition(VideoTrackCanvas).X;
+                double delta = currentMouseX - segmentDragStartMouseX;
+                double newLeft = segmentDragStartLeft + delta;
+
+                // 邊界保護：不能超出影片總長度左側
+                double maxLeft = (currentVideoDuration - segmentDragTrimDuration) * PIXELS_PER_SECOND;
+                if (newLeft < 0) newLeft = 0;
+                if (newLeft > maxLeft) newLeft = maxLeft;
+
+                Canvas.SetLeft(container, newLeft);
+
+                // 更新 trim 時間：保持框框寬度（秒）不變，只平移
+                trimStartSeconds = newLeft / PIXELS_PER_SECOND;
+                trimEndSeconds = trimStartSeconds + segmentDragTrimDuration;
+                TxtStartTime.Text = trimStartSeconds.ToString("F1");
+                TxtEndTime.Text = trimEndSeconds.ToString("F1");
+                
+            }
+        }
+
+        // 整體拖移：MouseUp
+        private void VideoSegment_MouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (isDraggingSegment)
+            {
+                isDraggingSegment = false;
+
+                // 【修正點】：先將 sender 轉型為 Grid，並命名為 container
+                if (sender is Grid container)
+                {
+                    container.ReleaseMouseCapture();
+
+                    // 取得放開滑鼠時，方塊在 Canvas 上的位置
+                    double currentLeft = Canvas.GetLeft(container);
+
+                    // 判斷位移量是否超過 1 像素 (避免單純點擊時微小的抖動觸發跳轉)
+                    if (Math.Abs(currentLeft - segmentStartLeft) > 1.0)
+                    {
+                        // 1. 更新剪輯數值（秒數 = 像素 / 比例）
+                        trimStartSeconds = currentLeft / PIXELS_PER_SECOND;
+                        trimEndSeconds = trimStartSeconds + (container.Width / PIXELS_PER_SECOND);
+
+                        // 2. 更新 UI 數字文字框
+                        TxtStartTime.Text = trimStartSeconds.ToString("F1");
+                        TxtEndTime.Text = trimEndSeconds.ToString("F1");
+
+                        // 3. 只有真的移動位置後，才將影片跳轉到新的起點預覽
+                        VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
+                    }
+                    // else: 位移太小視為單純點擊，不執行任何跳轉
+                }
+            }
+            e.Handled = true;
         }
 
         // 辨識並清除字卡(Border)的白框
@@ -932,26 +1002,44 @@ namespace framework
         // 按鈕：設定剪輯標記
         private void BtnTrim_Click(object sender, RoutedEventArgs e)
         {
-            // 抓取使用者輸入的開始與結束時間
-            if (!double.TryParse(TxtStartTime.Text, out double startTime))
+            if (VideoPlayer.Source == null) return;
+
+            if (!double.TryParse(TxtStartTime.Text, out double startTime) ||
+                !double.TryParse(TxtEndTime.Text, out double endTime))
             {
-                MessageBox.Show("請輸入有效的開始時間（秒）！", "錯誤");
-                return;
-            }
-            if (!double.TryParse(TxtEndTime.Text, out double endTime))
-            {
-                MessageBox.Show("請輸入有效的結束時間（秒）！", "錯誤");
-                return;
-            }
-            if (startTime < 0 || endTime <= startTime)
-            {
-                MessageBox.Show("結束時間必須大於開始時間，且不得為負值。", "錯誤");
+                MessageBox.Show("請輸入有效的開始與結束時間！", "錯誤");
                 return;
             }
 
-            StoreTrimSettings(startTime, endTime);
+            // 邏輯檢查
+            if (startTime < 0 || endTime <= startTime || endTime > currentVideoDuration)
+            {
+                MessageBox.Show($"時間設定不合法（影片總長：{currentVideoDuration:F1}秒）", "錯誤");
+                return;
+            }
 
-            MessageBox.Show($"已記錄剪輯指令：\n保留從第 {startTime} 秒 到 第 {endTime} 秒的片段。\n\n(後續輸出時會將此參數交給 FFmpeg 進行裁切)", "剪輯設定");
+            // 1. 更新全域變數
+            trimStartSeconds = startTime;
+            trimEndSeconds = endTime;
+            segmentDragTrimDuration = endTime - startTime;
+
+            // 2. 同步更新 UI 上的藍色框 (Grid)
+            foreach (var child in VideoTrackCanvas.Children)
+            {
+                if (child is Grid container && (string)container.Tag == "VideoSegment")
+                {
+                    double newLeft = startTime * PIXELS_PER_SECOND;
+                    double newWidth = (endTime - startTime) * PIXELS_PER_SECOND;
+
+                    Canvas.SetLeft(container, newLeft);
+                    container.Width = newWidth;
+                    break;
+                }
+            }
+
+            // 3. 讓播放器跳轉至新的開始點預覽
+            VideoPlayer.Position = TimeSpan.FromSeconds(startTime);
+            MessageBox.Show($"已同步剪輯範圍：{startTime}s - {endTime}s", "設定成功");
         }
 
     }
