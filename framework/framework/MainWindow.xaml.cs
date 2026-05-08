@@ -259,12 +259,23 @@ namespace framework
 
             if (duration <= 0) return;
 
-            // 1. 即時更新紅線的視覺位置
-            PlayheadLine.X1 = mouseX;
-            PlayheadLine.X2 = mouseX;
+            // ==========================================
+            // ⭐ 新增防護邏輯：計算邊界並限制滑鼠座標
+            // ==========================================
+            // 計算影片總長度對應的像素寬度 (最大允許的 X 座標)
+            double maxMouseX = duration * PIXELS_PER_SECOND;
 
-            // 2. 計算拖曳到的時間點
-            double targetSeconds = mouseX / PIXELS_PER_SECOND;
+            // 將滑鼠 X 座標強制限制在 0 到 maxMouseX 之間
+            // 如果 mouseX 小於 0，safeMouseX 會等於 0；如果超過 maxMouseX，就會停在 maxMouseX
+            double safeMouseX = Math.Max(0, Math.Min(mouseX, maxMouseX));
+            // ==========================================
+
+            // 1. 即時更新紅線的視覺位置 (改成使用 safeMouseX)
+            PlayheadLine.X1 = safeMouseX;
+            PlayheadLine.X2 = safeMouseX;
+
+            // 2. 計算拖曳到的時間點 (改成使用 safeMouseX)
+            double targetSeconds = safeMouseX / PIXELS_PER_SECOND;
 
             // 3. 同步更新影片進度
             VideoPlayer.Position = TimeSpan.FromSeconds(targetSeconds);
