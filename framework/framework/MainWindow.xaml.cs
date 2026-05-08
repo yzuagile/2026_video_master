@@ -436,16 +436,34 @@ namespace framework
             if (tool == EditorTool.Select)
             {
                 this.Cursor = Cursors.Arrow;
-                // 假設你的選取 RadioButton 叫做 RadioSelect
-                if (ToolSelect != null) ToolSelect.IsChecked = true; 
+                // 使用 == true 將 bool? 轉換為 bool
+                if (RadioSelect != null && RadioSelect.IsChecked == false) 
+                {
+                    RadioSelect.IsChecked = true;
+                }
             }
             else if (tool == EditorTool.Scissors)
             {
                 this.Cursor = Cursors.Cross;
-                // 假設你的剪刀 RadioButton 叫做 RadioScissors
-                if (ToolRazor != null) ToolRazor.IsChecked = true;
+                // 使用 == true 確保判斷邏輯正確
+                if (RadioScissors != null && RadioScissors.IsChecked == false) 
+                {
+                    RadioScissors.IsChecked = true;
+                }
             }
-}
+        }
+
+        private void ToolRadioButton_Checked(object sender, RoutedEventArgs e)
+        {
+            if (sender is RadioButton rb && rb.Tag != null)
+            {
+                string toolName = rb.Tag.ToString();
+                if (toolName == "Select")
+                    SetEditorTool(EditorTool.Select);
+                else if (toolName == "Scissors")
+                    SetEditorTool(EditorTool.Scissors);
+            }
+        }
 
         // ================= 工具列功能 =================
 
