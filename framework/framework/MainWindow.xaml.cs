@@ -43,7 +43,34 @@ namespace framework
 
         private Point segmentDragStartPoint;
         private double segmentStartLeft;
+        // ================= 字卡資料管理 =================
+        public class SubtitleClip
+        {
+            public Grid UIContainer { get; set; }   // 綁定 UI 容器，方便拖曳時尋找
+            public string Text { get; set; }        // 字卡文字
+            public double StartTime { get; set; }   // 開始時間(秒)
+            public double EndTime { get; set; }     // 結束時間(秒)
+        }
 
+        // 記錄畫面上所有的字卡
+        private List<SubtitleClip> allSubtitles = new List<SubtitleClip>();
+
+        // 根據目前時間，更新影片上的預覽字卡
+        private void UpdateSubtitleOnScreen(double currentSeconds)
+        {
+            string textToShow = "";
+            foreach (var subtitle in allSubtitles)
+            {
+                if (currentSeconds >= subtitle.StartTime && currentSeconds <= subtitle.EndTime)
+                {
+                    textToShow = subtitle.Text;
+                    break;
+                }
+            }
+
+            TxtPreview.Text = textToShow;
+            TxtPreview.Visibility = string.IsNullOrEmpty(textToShow) ? Visibility.Collapsed : Visibility.Visible;
+        }
         public MainWindow()
         {
             InitializeComponent();
@@ -117,6 +144,8 @@ namespace framework
                     double xPosition = currentPositionSeconds * PIXELS_PER_SECOND;
                     PlayheadLine.X1 = xPosition;
                     PlayheadLine.X2 = xPosition;
+                    // 【新增】：播放時即時更新字卡
+                    UpdateSubtitleOnScreen(currentPositionSeconds);
                 }
             }
         }
@@ -282,6 +311,8 @@ namespace framework
 
             // 3. 同步更新影片進度
             VideoPlayer.Position = TimeSpan.FromSeconds(targetSeconds);
+            // 【新增】：拖曳游標時即時更新字卡
+            UpdateSubtitleOnScreen(targetSeconds);
         }
         private void TimelineScrollViewer_PreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
         {
@@ -879,10 +910,22 @@ namespace framework
             Canvas.SetTop(textContainer, 5);
 
             VideoTrackCanvas.Children.Add(textContainer);
+            // ... 前面是你原本建立 textContainer 和 UI 的程式碼 ...
+
+            
+
+            // 【新增】：將這張新字卡存入資料清單中
+            allSubtitles.Add(new SubtitleClip
+            {
+                UIContainer = textContainer, // 把剛剛建好的 Grid 存起來當作辨識 ID
+                Text = textToApply,
+                StartTime = currentPosSeconds,
+                EndTime = currentPosSeconds + durationSeconds
+            });
 
             StoreSubtitleSettings(textToApply);
-
             TxtSubtitle.Text = "";  // 清空輸入框
+           
         }        
         
         private void BtnUpdateStyle_Click(object sender, RoutedEventArgs e)
@@ -1021,7 +1064,13 @@ namespace framework
                 if (sender is Grid container)
                 {
                     container.ReleaseMouseCapture();
-
+                    // 【新增】：去清單裡找出對應的字卡，更新它的起訖時間
+                    var targetSubtitle = allSubtitles.Find(sub => sub.UIContainer == container);
+                    if (targetSubtitle != null)
+                    {
+                        targetSubtitle.StartTime = Canvas.GetLeft(container) / PIXELS_PER_SECOND;
+                        targetSubtitle.EndTime = targetSubtitle.StartTime + (container.Width / PIXELS_PER_SECOND);
+                    }
                     // 未來如果需要記錄這張字卡的實際起訖時間傳給 FFmpeg，可以在這裡計算：
                     // double cardStartTime = Canvas.GetLeft(container) / PIXELS_PER_SECOND;
                     // double cardEndTime = cardStartTime + (container.Width / PIXELS_PER_SECOND);

@@ -24,20 +24,26 @@
             <Grid Grid.Column="0" Margin="10">
                 <Border Background="Black">
                     <Grid>
-                            <MediaElement Name="VideoPlayer"
-                                  ScrubbingEnabled="True"
-                                  LoadedBehavior="Manual"
-                                  Stretch="Uniform"/>
+                        <MediaElement Name="VideoPlayer"
+                          ScrubbingEnabled="True"
+                          LoadedBehavior="Manual"
+                          Stretch="Uniform"/>
 
-                            <Canvas IsHitTestVisible="False">
-                            <TextBlock Name="TxtPreview" 
-                                   Text="字卡預覽" 
-                                   Foreground="White" 
-                                   FontSize="24"
-                                   HorizontalAlignment="Center" 
-                                   VerticalAlignment="Center"
-                                   Visibility="Collapsed"/>
-                            </Canvas>
+                        <TextBlock Name="TxtPreview" 
+                       Text="Subtitle Preview" 
+                       Foreground="White" 
+                       FontSize="28" 
+                       FontWeight="Bold"
+                       HorizontalAlignment="Center" 
+                       VerticalAlignment="Bottom" 
+                       Margin="0,0,0,30"
+                       Visibility="Collapsed"
+                       IsHitTestVisible="False">
+
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="Black" BlurRadius="5" ShadowDepth="2" Opacity="0.8"/>
+                            </TextBlock.Effect>
+                        </TextBlock>
                     </Grid>
                 </Border>
             </Grid>
