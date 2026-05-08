@@ -37,6 +37,9 @@ namespace framework
         private double segmentDragStartMouseX = 0;
         private double segmentDragStartLeft = 0;
         private double segmentDragTrimDuration = 0; // 拖移前的框框寬度（秒），保持不變
+        private bool isDraggingTextSegment = false;
+        private double textDragStartMouseX = 0;
+        private double textDragStartLeft = 0;
 
         private Point segmentDragStartPoint;
         private double segmentStartLeft;
@@ -624,11 +627,17 @@ namespace framework
                 {
                     foreach (var inner in grid.Children)
                     {
+                        // 影像軌的選取框清除
                         if (inner is System.Windows.Shapes.Rectangle rect)
                             rect.Stroke = System.Windows.Media.Brushes.Transparent;
 
+                        // 字卡軌的選取框清除 ---
+                        if (inner is Border border)
+                            border.BorderBrush = System.Windows.Media.Brushes.Transparent;
+
+                        // 隱藏左右手把
                         if (inner is System.Windows.Controls.Primitives.Thumb thumb)
-                            thumb.Opacity = 0; // 隱藏手把
+                            thumb.Opacity = 0;
                     }
                 }
             }
@@ -746,9 +755,9 @@ namespace framework
             playheadTimer.Stop(); // 暫停定時器
         }
 
-        // ================= 分頁功能：字卡設定 =================
+        // ================= 字卡軌設定 =================
 
-        // 按鈕：套用字卡
+        // 按鈕套用字卡
         private void BtnAddText_Click(object sender, RoutedEventArgs e)
         {
             if (VideoPlayer.Source == null || !VideoPlayer.NaturalDuration.HasTimeSpan)
@@ -771,12 +780,19 @@ namespace framework
             double durationSeconds = 5.0;
             double cardWidth = durationSeconds * PIXELS_PER_SECOND;
 
-            // 3. 建立字卡的 UI 元素 (使用 Border 方便包裝文字並加上圓角背景)
-            Border textCard = new Border
+            // 3. 改用 Grid 當作容器，讓它能包容文字區塊與左右縮放手把
+            Grid textContainer = new Grid
             {
                 Width = cardWidth,
-                Height = 30, // 高度設定為 30，比影片軌稍微扁一點點
-                Background = new SolidColorBrush(Color.FromRgb(70, 80, 100)), // 參考附圖的灰藍色調
+                Height = 30,
+                Tag = "TextSegment",
+                Cursor = Cursors.SizeAll,
+                Background = Brushes.Transparent // 確保空白處也能被點擊拖曳
+            };
+
+            Border textCard = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(70, 80, 100)),
                 CornerRadius = new CornerRadius(4),
                 BorderBrush = Brushes.Transparent,
                 BorderThickness = new Thickness(2)
@@ -788,36 +804,54 @@ namespace framework
                 Foreground = Brushes.White,
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis, // 文字過長時會顯示 "..."
+                TextTrimming = TextTrimming.CharacterEllipsis,
                 Padding = new Thickness(5, 0, 5, 0)
             };
 
             textCard.Child = textBlock;
 
-            // 4. 註冊字卡的點擊事件 (使其可以被選取，點擊後會出現白框)
-            textCard.MouseDown += (s, ev) =>
+            // 綁定點擊主體事件 (選取、準備拖曳)
+            textCard.MouseDown += TextSegment_MouseDown;
+            textContainer.Children.Add(textCard);
+
+            // 左側手把
+            Thumb leftHandle = new Thumb
             {
-                ClearSelection();
-                textCard.BorderBrush = Brushes.White;
-                ev.Handled = true; // 避免點擊穿透到背景
+                Width = 8,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Cursor = Cursors.SizeWE,
+                Background = Brushes.White,
+                Opacity = 0 // 預設隱藏，點擊選取時才顯示
             };
+            leftHandle.DragDelta += TextLeftHandle_DragDelta;
 
-            // 5. 設定字卡在 VideoTrackCanvas 中的位置
-            Canvas.SetLeft(textCard, startX);
+            // 右側手把
+            Thumb rightHandle = new Thumb
+            {
+                Width = 8,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Cursor = Cursors.SizeWE,
+                Background = Brushes.White,
+                Opacity = 0
+            };
+            rightHandle.DragDelta += TextRightHandle_DragDelta;
 
-            // 影片軌段預設放在 Top=45，Height=35
-            // 將字卡軌設定在 Top=5，就會出現在影像軌的上方
-            Canvas.SetTop(textCard, 5);
+            textContainer.Children.Add(leftHandle);
+            textContainer.Children.Add(rightHandle);
 
-            // 6. 將字卡加入畫布中
-            VideoTrackCanvas.Children.Add(textCard);
+            // 綁定整體拖曳與放開事件
+            textContainer.MouseMove += TextSegment_MouseMove;
+            textContainer.MouseLeftButtonUp += TextSegment_MouseUp;
 
-            // 原本紀錄文字的邏輯
+            // 設定字卡在畫布上的位置 (Top=5，顯示在影像軌上方)
+            Canvas.SetLeft(textContainer, startX);
+            Canvas.SetTop(textContainer, 5);
+
+            VideoTrackCanvas.Children.Add(textContainer);
+
             StoreSubtitleSettings(textToApply);
 
-            MessageBox.Show($"已記錄字卡內容：「{textToApply}」。\n\n(目前為純記錄，後續將把此參數傳遞給 FFmpeg)", "系統訊息");
-            
-            TxtSubtitle.Text = "";  // 自動清空輸入框，方便使用者連續輸入下一個字卡
+            TxtSubtitle.Text = "";  // 清空輸入框
         }        
         
         private void BtnUpdateStyle_Click(object sender, RoutedEventArgs e)
@@ -865,6 +899,105 @@ namespace framework
             }
         }
 
+        // ================= 字卡軌專用：縮放邏輯 =================
+
+        // 處理字卡左側縮放
+        private void TextLeftHandle_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb thumb && thumb.Parent is Grid container)
+            {
+                double currentLeft = Canvas.GetLeft(container);
+                double newLeft = currentLeft + e.HorizontalChange;
+                double newWidth = container.Width - e.HorizontalChange;
+
+                // 左邊界：不超過 0，最小保留 10px 寬度
+                if (newWidth > 10 && newLeft >= 0)
+                {
+                    Canvas.SetLeft(container, newLeft);
+                    container.Width = newWidth;
+                }
+            }
+        }
+
+        // 處理字卡右側縮放
+        private void TextRightHandle_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb thumb && thumb.Parent is Grid container)
+            {
+                double newWidth = container.Width + e.HorizontalChange;
+                double currentLeft = Canvas.GetLeft(container);
+                double maxEnd = currentVideoDuration * PIXELS_PER_SECOND;
+
+                // 右邊界：不超過影片總長，最小保留 10px 寬度
+                if (newWidth > 10 && (currentLeft + newWidth) <= maxEnd)
+                {
+                    container.Width = newWidth;
+                }
+            }
+        }
+
+        // ================= 字卡軌專用：整體拖曳邏輯 =================
+
+        private void TextSegment_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            ClearSelection();
+
+            if (sender is Border textCard && textCard.Parent is Grid parentGrid)
+            {
+                // 顯示白框
+                textCard.BorderBrush = Brushes.White;
+
+                // 顯示左右手把
+                foreach (var child in parentGrid.Children)
+                {
+                    if (child is Thumb thumb) thumb.Opacity = 0.5;
+                }
+
+                // 記錄拖曳起始狀態
+                isDraggingTextSegment = true;
+                textDragStartMouseX = e.GetPosition(VideoTrackCanvas).X;
+                textDragStartLeft = Canvas.GetLeft(parentGrid);
+
+                parentGrid.CaptureMouse();
+                e.Handled = true;
+            }
+        }
+
+        private void TextSegment_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!isDraggingTextSegment) return;
+            if (sender is Grid container)
+            {
+                double currentMouseX = e.GetPosition(VideoTrackCanvas).X;
+                double delta = currentMouseX - textDragStartMouseX;
+                double newLeft = textDragStartLeft + delta;
+
+                // 邊界保護：不能拖到小於 0，也不能超過影片最右側
+                double maxLeft = (currentVideoDuration * PIXELS_PER_SECOND) - container.Width;
+                if (maxLeft < 0) maxLeft = 0;
+                if (newLeft < 0) newLeft = 0;
+                if (newLeft > maxLeft) newLeft = maxLeft;
+
+                Canvas.SetLeft(container, newLeft);
+            }
+        }
+
+        private void TextSegment_MouseUp(object sender, MouseButtonEventArgs e)
+        {
+            if (isDraggingTextSegment)
+            {
+                isDraggingTextSegment = false;
+                if (sender is Grid container)
+                {
+                    container.ReleaseMouseCapture();
+
+                    // 未來如果需要記錄這張字卡的實際起訖時間傳給 FFmpeg，可以在這裡計算：
+                    // double cardStartTime = Canvas.GetLeft(container) / PIXELS_PER_SECOND;
+                    // double cardEndTime = cardStartTime + (container.Width / PIXELS_PER_SECOND);
+                }
+            }
+            e.Handled = true;
+        }
 
         // ================= 分頁功能：影像剪輯 =================
 
