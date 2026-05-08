@@ -128,7 +128,10 @@
         </Grid>
 
         <Border Grid.Row="2" Background="#252526" Margin="10,0,10,10">
-            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer x:Name="TimelineScrollViewer" 
+              PreviewMouseWheel="TimelineScrollViewer_PreviewMouseWheel"
+              HorizontalScrollBarVisibility="Auto" 
+              VerticalScrollBarVisibility="Auto">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Background="Transparent" MouseDown="VideoTrackCanvas_MouseDown">
 
                     <StackPanel Orientation="Horizontal" Background="#2D2D2D">

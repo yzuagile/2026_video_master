@@ -280,6 +280,37 @@ namespace framework
             // 3. 同步更新影片進度
             VideoPlayer.Position = TimeSpan.FromSeconds(targetSeconds);
         }
+        private void TimelineScrollViewer_PreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+        {
+            // 確保觸發事件的元件是我們的 ScrollViewer
+            if (sender is ScrollViewer scrollViewer)
+            {
+                // 定義捲動速度的靈敏度 (可以根據團隊操作手感調整這個數值，通常 0.5~1 之間)
+                double scrollSensitivity = 0.8;
+
+                // 滾輪往上滾 (e.Delta > 0) 時，畫面往左移；往下滾 (e.Delta < 0) 時，畫面往右移
+                // 計算新的水平偏移量
+                double newOffset = scrollViewer.HorizontalOffset - (e.Delta * scrollSensitivity);
+
+                // 防護網：限制畫面不能捲出左邊界 (0)，也不能超過右邊界 (ScrollableWidth)
+                newOffset = Math.Max(0, Math.Min(newOffset, scrollViewer.ScrollableWidth));
+
+                // 執行水平捲動
+                scrollViewer.ScrollToHorizontalOffset(newOffset);
+
+                // 非常重要的一行：告訴 WPF「這個滾輪動作我已經處理完了」，
+                // 這樣它就不會再繼續執行預設的上下垂直捲動了！
+                e.Handled = true;
+            }
+            // 如果你想判斷有沒有按著 Ctrl 鍵 (例如未來想做 Ctrl+滾輪 = 時間軸放大縮小)
+            // 想擴充功能時請使用這行程式碼
+            if (System.Windows.Input.Keyboard.Modifiers == System.Windows.Input.ModifierKeys.Control)
+            {
+                // 執行放大縮小 (Zoom) 邏輯...
+                e.Handled = true;
+                return;
+            }
+        }
 
         private void MainWindow_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
