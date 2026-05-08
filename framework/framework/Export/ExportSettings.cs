@@ -27,6 +27,7 @@
         public VideoCodec VideoCodec { get; init; } = VideoCodec.H264;
         public bool UseCrf { get; init; }
         public int Crf { get; init; } = 23;
+        
         public string Preset { get; init; } = "medium";
         public int OutputWidth { get; init; }
         public int OutputHeight { get; init; }
