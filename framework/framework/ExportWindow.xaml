@@ -1,7 +1,7 @@
 ﻿<Window x:Class="framework.ExportWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="影片匯出設定" Height="520" Width="420" WindowStartupLocation="CenterOwner">
+        Title="影片匯出設定" Height="580" Width="520" WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -11,68 +11,81 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <GroupBox Header="檔案格式" Margin="0,0,0,10" Padding="10">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="選擇副檔名：" VerticalAlignment="Center"/>
-                <ComboBox Name="ComboFormat" Width="100" Margin="10,0,0,0" SelectedIndex="0">
-                    <ComboBoxItem Content="MP4"/>
-                    <ComboBoxItem Content="MKV"/>
-                    <ComboBoxItem Content="MOV"/>
-                </ComboBox>
+        <!-- 檔案格式 -->
+        <GroupBox Header="檔案格式" Margin="0,0,0,15" Padding="12">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="格式：" VerticalAlignment="Center" Width="50"/>
+                    <ComboBox Name="ComboFormat" Width="200" SelectedIndex="0" ToolTip="選擇適合的檔案格式">
+                        <ComboBoxItem Content="MP4 - 通用格式，大多數平台支援"/>
+                        <ComboBoxItem Content="MKV - 支援多軌道，專業編輯用"/>
+                        <ComboBoxItem Content="MOV - 蘋果設備最佳化"/>
+                    </ComboBox>
+                </StackPanel>
+                <TextBlock Text="💡 建議：一般用途選 MP4，專業製作選 MKV" FontSize="10" Foreground="#666666" Margin="50,0"/>
             </StackPanel>
         </GroupBox>
 
-        <GroupBox Grid.Row="1" Header="輸出品質" Padding="10" Margin="0,0,0,10">
+        <!-- 輸出品質 -->
+        <GroupBox Grid.Row="1" Header="輸出品質" Padding="12" Margin="0,0,0,15">
             <StackPanel>
-                <RadioButton Name="RadioLow" Content="低品質 (快速)" Margin="0,5" Checked="RadioQuality_Checked"/>
-                <RadioButton Name="RadioMedium" Content="中品質 (標準)" IsChecked="True" Margin="0,5" Checked="RadioQuality_Checked"/>
-                <RadioButton Name="RadioHigh" Content="高品質 (較慢)" Margin="0,5" Checked="RadioQuality_Checked"/>
-                <RadioButton Name="RadioCustom" Content="進階自訂參數" Margin="0,5" Checked="RadioQuality_Checked"/>
+                <RadioButton Name="RadioLow" Content="快速 - 檔案小，品質標準（~1 分鐘影片編碼時間）" 
+                             Margin="0,8" Checked="RadioQuality_Checked" FontSize="11"/>
+                <RadioButton Name="RadioMedium" Content="標準 - 平衡品質與速度（推薦使用）" 
+                             IsChecked="True" Margin="0,8" Checked="RadioQuality_Checked" FontSize="11"/>
+                <RadioButton Name="RadioHigh" Content="高品質 - 最佳效果，編碼較慢（~3 分鐘影片編碼時間）" 
+                             Margin="0,8" Checked="RadioQuality_Checked" FontSize="11"/>
+                <RadioButton Name="RadioCustom" Content="自訂 - 手動設定碼率" 
+                             Margin="0,8" Checked="RadioQuality_Checked" FontSize="11"/>
 
-                <StackPanel Margin="20,5,0,0" IsEnabled="{Binding IsChecked, ElementName=RadioCustom}">
-                    <StackPanel Orientation="Horizontal" Margin="0,5">
-                        <TextBlock Text="碼率 (kbps): " Width="80"/>
-                        <TextBox Name="TxtBitrate" Width="100" Text="4000" TextChanged="TxtBitrate_TextChanged"/>
+                <StackPanel Margin="20,8,0,0" IsEnabled="{Binding IsChecked, ElementName=RadioCustom}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="碼率：" Width="50" VerticalAlignment="Center"/>
+                        <TextBox Name="TxtBitrate" Width="80" Text="2000" TextChanged="TxtBitrate_TextChanged" ToolTip="輸入 kbps（如 2000 表示 2 Mbps）"/>
+                        <TextBlock Text="kbps" Margin="8,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
         </GroupBox>
 
-        <GroupBox Grid.Row="2" Header="進階輸出設定" Padding="10" Margin="0,0,0,10">
+        <!-- 進階設定 -->
+        <GroupBox Grid.Row="2" Header="進階設定（非必要）" Padding="12" Margin="0,0,0,15">
             <StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,5">
-                    <TextBlock Text="視訊編碼：" Width="80" VerticalAlignment="Center"/>
-                    <ComboBox Name="ComboVideoCodec" Width="150" SelectedIndex="0">
-                        <ComboBoxItem Content="H264"/>
-                        <ComboBoxItem Content="H265"/>
+                <StackPanel Orientation="Horizontal" Margin="0,6">
+                    <TextBlock Text="編碼器：" Width="60" VerticalAlignment="Center"/>
+                    <ComboBox Name="ComboVideoCodec" Width="130" SelectedIndex="0" ToolTip="H264：廣泛兼容 | H265：更好品質">
+                        <ComboBoxItem Content="H264 (推薦)"/>
+                        <ComboBoxItem Content="H265 (高效)"/>
                         <ComboBoxItem Content="VP9"/>
                     </ComboBox>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,5">
-                    <TextBlock Text="音訊編碼：" Width="80" VerticalAlignment="Center"/>
-                    <ComboBox Name="ComboAudioCodec" Width="150" SelectedIndex="0">
+                    <TextBlock Text="音訊：" Margin="15,0,0,0" VerticalAlignment="Center"/>
+                    <ComboBox Name="ComboAudioCodec" Width="90" SelectedIndex="0" ToolTip="AAC：標準音訊 | MP3：舊版相容">
                         <ComboBoxItem Content="AAC"/>
                         <ComboBoxItem Content="MP3"/>
                     </ComboBox>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,5">
-                    <TextBlock Text="畫面寬度：" Width="80" VerticalAlignment="Center"/>
-                    <TextBox Name="TxtWidth" Width="80" Text=""/>
-                    <TextBlock Text="  高度：" Margin="10,0,0,0" VerticalAlignment="Center"/>
-                    <TextBox Name="TxtHeight" Width="80" Text=""/>
+
+                <StackPanel Orientation="Horizontal" Margin="0,6">
+                    <TextBlock Text="解析度：" Width="60" VerticalAlignment="Center"/>
+                    <TextBox Name="TxtWidth" Width="60" Text="" ToolTip="寬度（留空保持原尺寸）"/>
+                    <TextBlock Text="×" Margin="8,0" VerticalAlignment="Center" FontWeight="Bold"/>
+                    <TextBox Name="TxtHeight" Width="60" Text="" ToolTip="高度"/>
+                    <TextBlock Text="（可選）" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="10" Foreground="#999999"/>
                 </StackPanel>
-                <CheckBox Name="ChkFastStart" Content="啟用快速啟動 +faststart" Margin="0,5"/>
-                <TextBlock Text="讓影片能在網路播放時更快啟動。" FontSize="11" Foreground="Gray" Margin="90,0,0,0"/>
+
+                <CheckBox Name="ChkFastStart" Content="網路最佳化/快速啟動" Margin="0,6" ToolTip="讓影片在網路播放時更快開始"/>
             </StackPanel>
         </GroupBox>
 
+        <!-- 檔案大小預估 -->
         <StackPanel Grid.Row="3" VerticalAlignment="Bottom" Margin="0,10">
-            <TextBlock Name="LblSizeEstimate" Text="預估檔案大小：計算中..." Foreground="Gray"/>
+            <TextBlock Name="LblSizeEstimate" Text="預估檔案大小：計算中..." Foreground="#666666" FontSize="11"/>
         </StackPanel>
 
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Name="BtnCancel" Content="取消" Width="80" Margin="0,0,10,0" Click="BtnCancel_Click"/>
-            <Button Name="BtnConfirm" Content="開始匯出" Width="100" Background="#007ACC" Foreground="White" Click="BtnConfirm_Click"/>
+        <!-- 按鈕 -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <Button Name="BtnCancel" Content="取消" Width="80" Margin="0,0,10,0" Click="BtnCancel_Click" Background="#F0F0F0"/>
+            <Button Name="BtnConfirm" Content="開始匯出" Width="100" Background="#007ACC" Foreground="White" Click="BtnConfirm_Click" FontWeight="Bold"/>
         </StackPanel>
     </Grid>
 </Window>
