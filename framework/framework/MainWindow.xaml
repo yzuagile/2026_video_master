@@ -2,109 +2,271 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="VideoMaster 2026 剪輯軟體"
-        WindowState="Maximized">
+        WindowState="Maximized"
+        KeyDown="MainWindow_KeyDown">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="50"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="300"/>
+            <RowDefinition Height="320"/>
         </Grid.RowDefinitions>
 
+        <!-- ===== 工具列 ===== -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#333333" VerticalAlignment="Center">
-            <Button Name="BtnImport" Content="📁 匯入影片" Margin="15,0,5,0" Padding="15,5" Background="White" Click="BtnImport_Click"/>
-            <Button Name="BtnExport" Content="🎬 輸出影片" Margin="5,0,0,0" Padding="15,5" Background="#007ACC" Foreground="White" BorderBrush="{x:Null}" Click="BtnExport_Click"/>
+            <Button Name="BtnImport" Content="📁 匯入影片" Margin="15,0,5,0" Padding="15,5" 
+                    Background="White" Click="BtnImport_Click"/>
+            <Button Name="BtnExport" Content="🎬 輸出影片" Margin="5,0,0,0" Padding="15,5" 
+                    Background="#007ACC" Foreground="White" BorderBrush="{x:Null}" Click="BtnExport_Click"/>
+            <Separator Margin="10,5" Background="#555"/>
+            <Button Name="BtnPreviewSubtitle" Content="👁 預覽字卡" Margin="5,0,0,0" Padding="15,5"
+                    Background="#5A3E8A" Foreground="White" BorderBrush="{x:Null}" Click="BtnPreviewSubtitle_Click"/>
+            <Button Name="BtnHidePreview" Content="✖ 關閉預覽" Margin="5,0,0,0" Padding="15,5"
+                    Background="#555" Foreground="White" BorderBrush="{x:Null}" Click="BtnHidePreview_Click"/>
         </StackPanel>
 
+        <!-- ===== 中區：播放器 + 設定面板 ===== -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="6*"/>
                 <ColumnDefinition Width="4*"/>
             </Grid.ColumnDefinitions>
 
+            <!-- 影片播放區 -->
             <Grid Grid.Column="0" Margin="10">
                 <Border Background="Black">
                     <Grid>
                         <MediaElement Name="VideoPlayer"
                           ScrubbingEnabled="True"
                           LoadedBehavior="Manual"
-                          Stretch="Uniform"/>
+                          Stretch="Uniform"
+                                      MediaOpened="VideoPlayer_MediaOpened"/>
 
-                        <TextBlock Name="TxtPreview" 
-                       Text="Subtitle Preview" 
-                       Foreground="White" 
-                       FontSize="28" 
-                       FontWeight="Bold"
-                       HorizontalAlignment="Center" 
-                       VerticalAlignment="Bottom" 
-                       Margin="0,0,0,30"
-                       Visibility="Collapsed"
-                       IsHitTestVisible="False">
-
-                            <TextBlock.Effect>
-                                <DropShadowEffect Color="Black" BlurRadius="5" ShadowDepth="2" Opacity="0.8"/>
-                            </TextBlock.Effect>
-                        </TextBlock>
+                        <!-- 字卡預覽 Canvas（疊在影片上方，可拖曳） -->
+                        <Canvas Name="SubtitleOverlayCanvas" IsHitTestVisible="True"
+                                Background="Transparent"/>
                     </Grid>
                 </Border>
             </Grid>
 
+            <!-- 右側設定面板 -->
             <TabControl x:Name="MainTabControl" Grid.Column="1" Margin="10">
 
-                <TabItem Header="📝 字卡設定(F1)" FontSize="14">
-                    <StackPanel Margin="15">
-                        <TextBlock Text="🎬 字卡設定面板" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
-                        <TextBlock Text="請輸入字幕內容：" Margin="0,0,0,5"/>
-                        <TextBox Name="TxtSubtitle" Height="40" TextWrapping="Wrap" Margin="0,0,0,15" AcceptsReturn="True"/>
-                        <TextBlock Text="字體："/>
-                        <ComboBox Name="ComboFontFamily" Margin="0,5,0,10">
-                            <ComboBoxItem Content="微軟正黑體" IsSelected="True"/>
-                            <ComboBoxItem Content="新細明體"/>
-                            <ComboBoxItem Content="標楷體"/>
-                        </ComboBox>
+<!-- ===== 字卡設定頁 ===== -->
+                <TabItem Header="📝 字卡設定 (F1)" FontSize="14">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="12">
 
-                        <UniformGrid Columns="2">
-                            <StackPanel Margin="0,0,5,0">
-                                <TextBlock Text="字體大小："/>
-                                <TextBox Name="TxtFontSize" Text="24" Margin="0,5"/>
-                            </StackPanel>
-                            <StackPanel Margin="5,0,0,0">
-                                <TextBlock Text="字體粗細："/>
-                                <ComboBox Name="ComboFontWeight" Margin="0,5">
-                                    <ComboBoxItem Content="Normal" IsSelected="True"/>
-                                    <ComboBoxItem Content="Bold"/>
-                                </ComboBox>
-                            </StackPanel>
-                        </UniformGrid>
+                            <TextBlock Text="🎬 字卡設定面板" FontWeight="Bold" FontSize="15"
+                                       Margin="0,0,0,12" Foreground="#1C1C1C"/>
 
-                        <TextBlock Text="字體顏色 (Hex)：" Margin="0,5,0,0"/>
-                        <TextBox Name="TxtFontColor" Text="#FFFFFF" Margin="0,5"/>
+                            <!-- 字幕內容 -->
+                            <TextBlock Text="字幕內容：" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtSubtitle" Height="55" TextWrapping="Wrap"
+                                     AcceptsReturn="True" Margin="0,0,0,10"
+                                     Padding="6" FontSize="13"
+                                     VerticalScrollBarVisibility="Auto"/>
 
-                        <TextBlock Text="外框寬度：" Margin="0,5,0,0"/>
-                        <Slider Name="SliderStroke" Minimum="0" Maximum="10" Value="0" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                            <!-- 字體選擇 -->
+                            <TextBlock Text="字體（Font Family）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <ComboBox Name="ComboFontFamily" Margin="0,0,0,10"
+                                      SelectionChanged="StyleControl_Changed">
+                                <ComboBoxItem Content="微軟正黑體" IsSelected="True"/>
+                                <ComboBoxItem Content="新細明體"/>
+                                <ComboBoxItem Content="標楷體"/>
+                                <ComboBoxItem Content="Arial"/>
+                                <ComboBoxItem Content="Times New Roman"/>
+                                <ComboBoxItem Content="Consolas"/>
+                            </ComboBox>
 
-                        <Grid Margin="0,5,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                            <!-- 大小 & 粗細 -->
+                            <UniformGrid Columns="2" Margin="0,0,0,10">
+                                <StackPanel Margin="0,0,5,0">
+                                    <TextBlock Text="字體大小（Size）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <TextBox Name="TxtFontSize" Text="24" Padding="5"
+                                             TextChanged="StyleControl_TextChanged"/>
+                                </StackPanel>
+                                <StackPanel Margin="5,0,0,0">
+                                    <TextBlock Text="字體粗細（Weight）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox Name="ComboFontWeight" SelectionChanged="StyleControl_Changed">
+                                        <ComboBoxItem Content="Normal" IsSelected="True"/>
+                                        <ComboBoxItem Content="Bold"/>
+                                        <ComboBoxItem Content="Light"/>
+                                        <ComboBoxItem Content="ExtraBold"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </UniformGrid>
 
-                            <Button Grid.Column="0"
-                                Content="💾 更新所選字卡樣式"
-                                Padding="10"
-                                Background="#007ACC"
-                                Foreground="White"
-                                Click="BtnUpdateStyle_Click"
-                                Margin="0,0,5,0"/>
+                            <!-- 斜體 & 底線 -->
+                            <UniformGrid Columns="2" Margin="0,0,0,10">
+                                <CheckBox Name="ChkItalic" Content="斜體（Italic）"
+                                          VerticalAlignment="Center" Margin="0,0,5,0"
+                                          Checked="StyleControl_CheckChanged" Unchecked="StyleControl_CheckChanged"/>
+                                <CheckBox Name="ChkUnderline" Content="底線（Underline）"
+                                          VerticalAlignment="Center" Margin="5,0,0,0"
+                                          Checked="StyleControl_CheckChanged" Unchecked="StyleControl_CheckChanged"/>
+                            </UniformGrid>
 
-                            <Button Grid.Column="1"
-                                Content="套用字卡設定"
-                                Padding="8"
-                                Click="BtnAddText_Click"
-                                Margin="5,0,0,0"/>
-                        </Grid>
-                    </StackPanel>
+                            <!-- 字體顏色 -->
+                            <TextBlock Text="字體顏色（Hex / #RRGGBB）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="36"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Name="TxtFontColor" Text="#FFFFFF" Padding="5"
+                                         TextChanged="StyleControl_TextChanged"/>
+                                <Border Grid.Column="1" Name="FontColorSwatch" Width="28" Height="28"
+                                        Margin="4,0,0,0" CornerRadius="4"
+                                        Background="White" BorderBrush="#AAA" BorderThickness="1"/>
+                            </Grid>
+
+                            <!-- 字體陰影色 -->
+                            <TextBlock Text="陰影顏色（Hex）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="36"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Name="TxtShadowColor" Text="#000000" Padding="5"
+                                         TextChanged="StyleControl_TextChanged"/>
+                                <Border Grid.Column="1" Name="ShadowColorSwatch" Width="28" Height="28"
+                                        Margin="4,0,0,0" CornerRadius="4"
+                                        Background="Black" BorderBrush="#AAA" BorderThickness="1"/>
+                            </Grid>
+
+                            <!-- 外框寬度 & 顏色 -->
+                            <TextBlock Text="外框寬度（Border Width）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="40"/>
+                                </Grid.ColumnDefinitions>
+                                <Slider Name="SliderStroke" Minimum="0" Maximum="10" Value="0"
+                                        TickFrequency="1" IsSnapToTickEnabled="True"
+                                        VerticalAlignment="Center"
+                                        ValueChanged="StyleControl_SliderChanged"/>
+                                <TextBlock Grid.Column="1" Name="LblStrokeValue" Text="0"
+                                           VerticalAlignment="Center" HorizontalAlignment="Center"
+                                           FontWeight="Bold"/>
+                            </Grid>
+
+                            <TextBlock Text="外框顏色（Border Color）：" FontWeight="SemiBold" Margin="0,4,0,4"/>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="36"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Name="TxtBorderColor" Text="#000000" Padding="5"
+                                         TextChanged="StyleControl_TextChanged"/>
+                                <Border Grid.Column="1" Name="BorderColorSwatch" Width="28" Height="28"
+                                        Margin="4,0,0,0" CornerRadius="4"
+                                        Background="Black" BorderBrush="#AAA" BorderThickness="1"/>
+                            </Grid>
+
+                            <!-- 背景色 -->
+                            <TextBlock Text="字卡背景色（Hex，透明輸入 #00000000）："
+                                       FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="36"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Name="TxtBgColor" Text="#00000000" Padding="5"
+                                         TextChanged="StyleControl_TextChanged"/>
+                                <Border Grid.Column="1" Name="BgColorSwatch" Width="28" Height="28"
+                                        Margin="4,0,0,0" CornerRadius="4"
+                                        Background="Transparent" BorderBrush="#AAA" BorderThickness="1"/>
+                            </Grid>
+
+                            <!-- 位置設定 -->
+                            <TextBlock Text="字卡位置（Position）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <ComboBox Name="ComboPosition" Margin="0,0,0,10"
+                                      SelectionChanged="StyleControl_Changed">
+                                <ComboBoxItem Content="底部置中（Bottom Center）" IsSelected="True"/>
+                                <ComboBoxItem Content="頂部置中（Top Center）"/>
+                                <ComboBoxItem Content="中央置中（Middle Center）"/>
+                                <ComboBoxItem Content="底部靠左（Bottom Left）"/>
+                                <ComboBoxItem Content="底部靠右（Bottom Right）"/>
+                            </ComboBox>
+
+                            <!-- 拖曳座標顯示 -->
+                            <UniformGrid Columns="2" Margin="0,4,0,10">
+                                <StackPanel Margin="0,0,5,0">
+                                    <TextBlock Text="X 座標（px）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <TextBox Name="TxtPosX" Text="0" Padding="5"
+                                             IsReadOnly="True" Background="#F0F0F0"
+                                             ToolTip="拖曳字卡後自動更新"/>
+                                </StackPanel>
+                                <StackPanel Margin="5,0,0,0">
+                                    <TextBlock Text="Y 座標（px）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <TextBox Name="TxtPosY" Text="0" Padding="5"
+                                             IsReadOnly="True" Background="#F0F0F0"
+                                             ToolTip="拖曳字卡後自動更新"/>
+                                </StackPanel>
+                            </UniformGrid>
+
+                            <!-- 字卡時間設定 -->
+                            <Separator Margin="0,5,0,10"/>
+                            <TextBlock Text="⏱ 字卡時間設定" FontWeight="Bold" FontSize="13"
+                                       Margin="0,0,0,8"/>
+
+                            <UniformGrid Columns="2" Margin="0,0,0,10">
+                                <StackPanel Margin="0,0,5,0">
+                                    <TextBlock Text="開始時間（秒）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <TextBox Name="TxtSubStartTime" Text="0" Padding="5"/>
+                                </StackPanel>
+                                <StackPanel Margin="5,0,0,0">
+                                    <TextBlock Text="顯示時長（秒）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <TextBox Name="TxtSubDuration" Text="5" Padding="5"/>
+                                </StackPanel>
+                            </UniformGrid>
+
+                            <!-- 動作按鈕 -->
+                            <Separator Margin="0,5,0,10"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Content="➕ 套用字卡至時間軸"
+                                        Padding="8,10" Background="#007ACC" Foreground="White"
+                                        BorderBrush="{x:Null}" Margin="0,0,5,0"
+                                        FontWeight="SemiBold"
+                                        Click="BtnAddText_Click"/>
+                                <Button Grid.Column="1" Content="💾 更新選取字卡樣式"
+                                        Padding="8,10" Background="#5A8A3E" Foreground="White"
+                                        BorderBrush="{x:Null}" Margin="5,0,0,0"
+                                        FontWeight="SemiBold"
+                                        Click="BtnUpdateStyle_Click"/>
+                            </Grid>
+
+                            <Button Content="👁 即時預覽字卡效果"
+                                    Margin="0,8,0,0" Padding="8,10"
+                                    Background="#5A3E8A" Foreground="White"
+                                    BorderBrush="{x:Null}" FontWeight="SemiBold"
+                                    Click="BtnPreviewSubtitle_Click"/>
+
+                            <!-- 即時預覽縮圖 -->
+                            <Border Margin="0,12,0,0" Background="#111" CornerRadius="6"
+                                    Height="80" ClipToBounds="True">
+                                <Grid>
+                                    <TextBlock Text="字卡預覽" Foreground="#555"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               FontSize="12"/>
+                                    <Border Name="MiniPreviewBorder" CornerRadius="3" Padding="8,3"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Name="TxtMiniPreview"
+                                                   Text="字卡預覽文字" Foreground="White"
+                                                   FontSize="14" FontFamily="Microsoft JhengHei"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+
+                        </StackPanel>
+                    </ScrollViewer>
                 </TabItem>
 
+                <!-- ===== 影像剪輯頁 ===== -->
                 <TabItem Header="✂️ 影像剪輯 (F2)" FontSize="14">
                     <StackPanel Margin="15">
                         <TextBlock Text="✂️ 剪輯設定面板" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
@@ -112,57 +274,95 @@
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <TextBlock Text="開始時間 (秒)：" VerticalAlignment="Center" Width="100"/>
-                            <TextBox Name="TxtStartTime" Width="60" Text="0" VerticalContentAlignment="Center"/>
+                            <TextBox Name="TxtStartTime" Width="70" Text="0" 
+                                     VerticalContentAlignment="Center" Padding="5"/>
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
                             <TextBlock Text="結束時間 (秒)：" VerticalAlignment="Center" Width="100"/>
-                            <TextBox Name="TxtEndTime" Width="60" Text="10" VerticalContentAlignment="Center"/>
+                            <TextBox Name="TxtEndTime" Width="70" Text="10" 
+                                     VerticalContentAlignment="Center" Padding="5"/>
                         </StackPanel>
 
-                        <Button Name="BtnTrim" Content="設定剪輯標記" Padding="8" Click="BtnTrim_Click"/>
+                        <Button Name="BtnTrim" Content="設定剪輯標記" Padding="10"
+                                Background="#007ACC" Foreground="White" BorderBrush="{x:Null}"
+                                Click="BtnTrim_Click"/>
                     </StackPanel>
                 </TabItem>
 
+                <!-- ===== 畫面調整頁 ===== -->
                 <TabItem Header="🎨 畫面調整 (F3)" FontSize="14">
                     <StackPanel Margin="15" VerticalAlignment="Center">
-                        <TextBlock Text="此區塊未來可放置亮度、對比、濾鏡等設定..." Foreground="Gray" HorizontalAlignment="Center"/>
+                        <TextBlock Text="此區塊未來可放置亮度、對比、濾鏡等設定..." 
+                                   Foreground="Gray" HorizontalAlignment="Center"/>
                     </StackPanel>
                 </TabItem>
 
             </TabControl>
         </Grid>
 
+        <!-- ===== 時間軸區域 ===== -->
         <Border Grid.Row="2" Background="#252526" Margin="10,0,10,10">
             <ScrollViewer x:Name="TimelineScrollViewer" 
-              PreviewMouseWheel="TimelineScrollViewer_PreviewMouseWheel"
-              HorizontalScrollBarVisibility="Auto" 
-              VerticalScrollBarVisibility="Auto">
-                <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Background="Transparent" MouseDown="VideoTrackCanvas_MouseDown">
+                          PreviewMouseWheel="TimelineScrollViewer_PreviewMouseWheel"
+                          HorizontalScrollBarVisibility="Auto" 
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Background="Transparent" 
+                            MouseDown="VideoTrackCanvas_MouseDown">
 
+                    <!-- 工具列 -->
                     <StackPanel Orientation="Horizontal" Background="#2D2D2D">
-                        <Button Name="BtnPlay" Content="▶ 播放" Margin="5" Padding="15,2" Background="#4CAF50" Foreground="White" BorderThickness="0" Cursor="Hand" Click="BtnPlay_Click"/>
-                        <Button Name="BtnPause" Content="⏸ 暫停" Margin="0,5,15,5" Padding="15,2" Background="#FF9800" Foreground="White" BorderThickness="0" Cursor="Hand" Click="BtnPause_Click"/>
+                        <Button Name="BtnPlay" Content="▶ 播放" Margin="5" Padding="15,2" 
+                                Background="#4CAF50" Foreground="White" BorderThickness="0" 
+                                Cursor="Hand" Click="BtnPlay_Click"/>
+                        <Button Name="BtnPause" Content="⏸ 暫停" Margin="0,5,15,5" Padding="15,2" 
+                                Background="#FF9800" Foreground="White" BorderThickness="0" 
+                                Cursor="Hand" Click="BtnPause_Click"/>
                         
-                        <RadioButton Name="RadioSelect" Content="🏹 選取 (V)" IsChecked="True" Margin="5" Foreground="White" VerticalAlignment="Center" Checked="ToolRadioButton_Checked" Tag="Select"/>
-                        <RadioButton Name="RadioScissors" Content="✂️ 剪刀 (C)" Margin="5" Foreground="White" VerticalAlignment="Center" Checked="ToolRadioButton_Checked" Tag="Scissors"/>
-                        <Button x:Name="BtnDelete" Content="✖ 刪除 (Del)" Click="BtnDelete_Click" 
+                        <RadioButton Name="RadioSelect" Content="🏹 選取 (V)" IsChecked="True" 
+                                     Margin="5" Foreground="White" VerticalAlignment="Center" 
+                                     Checked="ToolRadioButton_Checked" Tag="Select"/>
+                        <RadioButton Name="RadioScissors" Content="✂️ 剪刀 (C)" 
+                                     Margin="5" Foreground="White" VerticalAlignment="Center" 
+                                     Checked="ToolRadioButton_Checked" Tag="Scissors"/>
+                        <Button x:Name="BtnDelete" Content="✖ 刪除 (Del)" 
+                                Click="BtnDelete_Click" 
                                 Margin="10,5,5,5" Padding="10,0" 
                                 Background="Transparent" Foreground="White" BorderThickness="0" 
                                 Cursor="Hand"/>
                     </StackPanel>
 
+                    <!-- 時間軸內容 -->
                     <Grid Name="TimelineContentStack">
                         <StackPanel Orientation="Vertical">
 
+                            <!-- 時間刻度 -->
                             <Grid Height="25" Margin="0,0,0,2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="80"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <Canvas Grid.Column="1" Name="TimeRulerCanvas" Background="#2D2D2D" HorizontalAlignment="Left"/>
+                                <Canvas Grid.Column="1" Name="TimeRulerCanvas" 
+                                        Background="#2D2D2D" HorizontalAlignment="Left"/>
+                            </Grid>
+                            
+                            <!-- 字卡軌 -->
+                            <Grid Height="40" Margin="0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="4*"/>
+                                    <ColumnDefinition Width="207*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="💬 字卡軌" Foreground="#AAAAFF"
+                                           VerticalAlignment="Center" HorizontalAlignment="Center"
+                                           FontSize="11"/>
+                                <Canvas Grid.Column="1" Name="SubtitleTrackCanvas"
+                                        Background="#1A1A2E" HorizontalAlignment="Left"
+                                        Grid.ColumnSpan="3"/>
                             </Grid>
 
+                            <!-- 影像軌 -->
                             <Grid Height="120" Margin="0,2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="80"/>
@@ -170,17 +370,22 @@
                                     <ColumnDefinition Width="4*"/>
                                     <ColumnDefinition Width="207*"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="🎬 影像軌" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                <Canvas Grid.Column="1" Name="VideoTrackCanvas" Background="#1E1E1E" HorizontalAlignment="Left" Grid.ColumnSpan="2"/>
+                                <TextBlock Text="🎬 影像軌" Foreground="White" 
+                                           VerticalAlignment="Center" HorizontalAlignment="Center"
+                                           FontSize="11"/>
+                                <Canvas Grid.Column="1" Name="VideoTrackCanvas" 
+                                        Background="#1E1E1E" HorizontalAlignment="Left" 
+                                        Grid.ColumnSpan="3"/>
                             </Grid>
                         </StackPanel>
 
-                        <Canvas Name="PlayheadCanvas" IsHitTestVisible="False" Margin="80,0,0,0" Panel.ZIndex="1">
+                         <!-- 播放游標（紅線） -->
+                        <Canvas Name="PlayheadCanvas" IsHitTestVisible="False" 
+                                Margin="80,0,0,0" Panel.ZIndex="10">
                             <Line x:Name="PlayheadLine" 
-                          X1="0"  Y1="0" X2="0"  Y2="120"   
-                          Stroke="Red" 
-                          StrokeThickness="2" 
-                          Visibility="Collapsed" />
+                          X1="0" Y1="0" X2="0" Y2="190"   
+                          Stroke="Red" StrokeThickness="2" 
+                          Visibility="Collapsed"/>
                         </Canvas>
                     </Grid>
                 </StackPanel>
