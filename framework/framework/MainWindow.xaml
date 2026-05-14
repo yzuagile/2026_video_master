@@ -330,6 +330,16 @@
                                 Margin="10,5,5,5" Padding="10,0" 
                                 Background="Transparent" Foreground="White" BorderThickness="0" 
                                 Cursor="Hand"/>
+                        <Button x:Name="BtnUndo" Content="↩ 撤銷 (Ctrl+Z)" 
+                                Click="BtnUndo_Click" 
+                                Margin="5,5,5,5" Padding="10,0" 
+                                Background="Transparent" Foreground="White" BorderThickness="0" 
+                                Cursor="Hand" ToolTip="復原上一個動作"/>
+                        <Button x:Name="BtnRedo" Content="↪ 重作 (Ctrl+Y)" 
+                                Click="BtnRedo_Click" 
+                                Margin="5,5,10,5" Padding="10,0" 
+                                Background="Transparent" Foreground="White" BorderThickness="0" 
+                                Cursor="Hand" ToolTip="重做上一個動作"/>
                     </StackPanel>
 
                     <!-- 時間軸內容 -->
