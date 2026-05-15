@@ -1159,6 +1159,13 @@ namespace framework
         private void VideoTrackCanvas_MouseDown(object sender, MouseButtonEventArgs e) => ClearSelection();
         private void SplitSegment(VideoSegmentData segment, double splitPointSeconds)
         {
+            // 【新增】：防呆保護。確保切割點在片段中間，左右至少保留 0.5 秒的長度
+            if (splitPointSeconds <= segment.TimelineStart + 0.5 ||
+                splitPointSeconds >= segment.TimelineStart + segment.Duration - 0.5)
+            {
+                MessageBox.Show("切割點太靠近邊緣，請選擇片段中間的位置下刀！", "提示");
+                return;
+            }
             var cmd = new SplitVideoCommand(
                 videoSegments,
                 VideoTrackCanvas,
@@ -1233,7 +1240,7 @@ namespace framework
         }
         private void BtnDelete_Click(object sender, RoutedEventArgs e)
         {
-            // 優先刪除選取的字卡
+            // 1. 優先刪除選取的「字卡」
             if (selectedSubtitleCard != null)
             {
                 if (selectedSubtitleCard.Tag is SubtitleStyle s)
@@ -1249,23 +1256,38 @@ namespace framework
                 return;
             }
 
+            // 2. 【新增】：刪除選取的「影片片段」
+            if (selectedSegment != null)
+            {
+                // 確保不會把最後一個片段刪掉（如果是團隊需求，可以拿掉這個限制）
+                // if (videoSegments.Count <= 1)
+                // { MessageBox.Show("必須至少保留一個影片片段！", "提示"); return; }
+
+                var cmd = new DeleteVideoSegmentCommand(videoSegments, VideoTrackCanvas, selectedSegment, ClearSelection);
+                commandHistory.ExecuteCommand(cmd);
+
+                selectedSegment = null; // 清空選取狀態
+                return;
+            }
+
+            // 3. 如果畫面上什麼都沒選取，才詢問是否要「清空全部」
             if (string.IsNullOrEmpty(currentVideoPath))
             { MessageBox.Show("目前沒有載入任何影片片段。", "提示"); return; }
 
-            var r = MessageBox.Show("確定要從時間軸移除此影片嗎？", "確認刪除",
-                                    MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            var r = MessageBox.Show("確定要從時間軸移除整部影片嗎？", "確認刪除", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (r == MessageBoxResult.Yes)
             {
                 commandHistory.Clear();
                 VideoTrackCanvas.Children.Clear();
                 SubtitleTrackCanvas.Children.Clear();
                 subtitleList.Clear();
-                currentVideoPath        = "";
-                currentVideoDuration    = 0;
-                timelineOffsetX         = 0;
-                timelineTransform.X     = 0;
+                videoSegments.Clear(); // 記得清空影片片段清單
+                currentVideoPath = "";
+                currentVideoDuration = 0;
+                timelineOffsetX = 0;
+                timelineTransform.X = 0;
                 VideoPlayer.Stop();
-                VideoPlayer.Source      = null;
+                VideoPlayer.Source = null;
                 playheadTimer.Stop();
                 PlayheadLine.Visibility = Visibility.Collapsed;
                 SubtitleOverlayCanvas.Children.Clear();
@@ -1596,6 +1618,51 @@ namespace framework
         }
         public void Execute() { _list.Add(_subtitle); _refreshUI(); }
         public void Undo() { _list.Remove(_subtitle); _refreshUI(); }
+    }
+    // 刪除影片片段的專用指令 (支援 Undo / Redo)
+    public class DeleteVideoSegmentCommand : IEditorCommand
+    {
+        private List<MainWindow.VideoSegmentData> _videoSegments;
+        private Canvas _videoTrackCanvas;
+        private MainWindow.VideoSegmentData _segmentToDelete;
+        private Action _clearSelection;
+
+        public DeleteVideoSegmentCommand(
+            List<MainWindow.VideoSegmentData> videoSegments,
+            Canvas videoTrackCanvas,
+            MainWindow.VideoSegmentData segmentToDelete,
+            Action clearSelection)
+        {
+            _videoSegments = videoSegments;
+            _videoTrackCanvas = videoTrackCanvas;
+            _segmentToDelete = segmentToDelete;
+            _clearSelection = clearSelection;
+        }
+
+        public void Execute()
+        {
+            // 執行刪除前先清空選取框
+            _clearSelection();
+
+            // 從清單與畫布中移除該片段
+            _videoSegments.Remove(_segmentToDelete);
+            if (_segmentToDelete.UIElement != null)
+            {
+                _videoTrackCanvas.Children.Remove(_segmentToDelete.UIElement);
+            }
+        }
+
+        public void Undo()
+        {
+            _clearSelection();
+
+            // 復原時加回清單與畫布 (UI位置會依照原本的 Canvas.Left 自動對齊)
+            _videoSegments.Add(_segmentToDelete);
+            if (_segmentToDelete.UIElement != null)
+            {
+                _videoTrackCanvas.Children.Add(_segmentToDelete.UIElement);
+            }
+        }
     }
     public class SplitVideoCommand : IEditorCommand
     {
