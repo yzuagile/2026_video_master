@@ -185,7 +185,9 @@ namespace framework
         private System.Windows.Threading.DispatcherTimer playheadTimer;
         private System.Windows.Threading.DispatcherTimer autoScrollTimer;
         private const double PIXELS_PER_SECOND = 20;
-
+        private DateTime lastTickTime = DateTime.Now;     // 用來計算現實中過了幾秒
+        private double timelineCurrentSeconds = 0;        // 時間軸的虛擬時鐘 (紅線的真正位置)
+        
         // 記錄目前是否正在拖曳游標
         private bool isDraggingPlayhead  = false;
         private bool wasPlayingBeforeDrag = false;
@@ -259,7 +261,30 @@ namespace framework
                 RefreshMiniPreview();
             };
         }
+        private void SyncVideoPlayerToTimeline(double tlSeconds)
+        {
+            timelineCurrentSeconds = tlSeconds;
 
+            var segment = videoSegments.FirstOrDefault(s =>
+                tlSeconds >= s.TimelineStartSeconds &&
+                tlSeconds < s.TimelineStartSeconds + s.TimelineDurationSeconds);
+
+            if (segment != null)
+            {
+                double targetVideoPos = segment.InternalOffset + (tlSeconds - segment.TimelineStartSeconds);
+                VideoPlayer.Position = TimeSpan.FromSeconds(targetVideoPos);
+                VideoPlayer.Opacity = 1; // 🌟 修正：用透明度代替 Visibility
+            }
+            else
+            {
+                VideoPlayer.Opacity = 0; // 🌟 修正：用透明度代替 Visibility
+            }
+
+            double x = tlSeconds * PIXELS_PER_SECOND;
+            PlayheadLine.X1 = x;
+            PlayheadLine.X2 = x;
+            UpdateSubtitleOverlay(tlSeconds);
+        }
         //  計時器
         private void InitializePlayheadTimer()
         {
@@ -272,33 +297,67 @@ namespace framework
 
         private void PlayheadTimer_Tick(object sender, EventArgs e)
         {
-            // 確保有載入影片且播放器有 NaturalDuration
-            if (VideoPlayer.Source == null || !VideoPlayer.NaturalDuration.HasTimeSpan) return;
-            
-            double currentTime = VideoPlayer.Position.TotalSeconds;
+            if (VideoPlayer.Source == null) return;
 
-            if (!isDraggingTrackItem)
+            // 1. 真實世界時間推進 (這就是我們的大會計時鐘)
+            double nowSeconds = (DateTime.Now - lastTickTime).TotalSeconds;
+            lastTickTime = DateTime.Now;
+
+            if (isDraggingPlayhead || isDraggingTrackItem) return;
+
+            // 讓虛擬時間軸穩穩地往前走
+            timelineCurrentSeconds += nowSeconds;
+
+            // 檢查是否播到整部片的最尾端
+            double maxTimelineEnd = videoSegments.Count > 0 ? videoSegments.Max(s => s.TimelineStartSeconds + s.TimelineDurationSeconds) : 0;
+            if (timelineCurrentSeconds >= maxTimelineEnd && maxTimelineEnd > 0)
             {
-                if (currentTime >= trimEndSeconds)
+                timelineCurrentSeconds = maxTimelineEnd;
+                playheadTimer.Stop();
+                VideoPlayer.Pause();
+                SyncVideoPlayerToTimeline(timelineCurrentSeconds); // 讓 UI 停在最後一格
+                return;
+            }
+
+            // 2. 判斷目前的紅線落在哪個片段裡？
+            var currentSegment = videoSegments.FirstOrDefault(s =>
+                timelineCurrentSeconds >= s.TimelineStartSeconds &&
+                timelineCurrentSeconds < s.TimelineStartSeconds + s.TimelineDurationSeconds);
+
+            if (currentSegment != null)
+            {
+                // 【狀態 A：在影片片段內】
+                if (VideoPlayer.Opacity == 0)
                 {
-                    // 播到 trimEnd：停止並跳回 trimStart
-                    VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
+                    VideoPlayer.Opacity = 1; // 跨過空隙了，恢復顯示！
+                    VideoPlayer.Play();
                 }
-                else if (currentTime < trimStartSeconds)
+
+                // 計算目前影片「應該」在哪個位置
+                double expectedVideoPos = currentSegment.InternalOffset + (timelineCurrentSeconds - currentSegment.TimelineStartSeconds);
+
+                // 如果播放器進度跟預期差超過 0.2 秒 (例如剛跳過空隙，或系統卡頓)，強制它跟上
+                if (Math.Abs(VideoPlayer.Position.TotalSeconds - expectedVideoPos) > 0.2)
                 {
-                    // 紅線在框框左側：跳到 trimStart 開始播
-                    VideoPlayer.Position = TimeSpan.FromSeconds(trimStartSeconds);
+                    VideoPlayer.Position = TimeSpan.FromSeconds(expectedVideoPos);
+                    VideoPlayer.Play();
+                }
+            }
+            else
+            {
+                // 【狀態 B：在空隙中】
+                if (VideoPlayer.Opacity != 0)
+                {
+                    VideoPlayer.Opacity = 0; // 改用 Opacity 隱藏，避免 WPF 崩潰
+                    VideoPlayer.Pause();     // 暫停影片，等紅線走完空隙
                 }
             }
 
-            if (!isDraggingPlayhead)
-            {
-                double x = currentTime * PIXELS_PER_SECOND;
-                PlayheadLine.X1 = x;
-                PlayheadLine.X2 = x;
-                UpdateSubtitleOverlay(currentTime);
-                UpdateVideoVisibility(currentTime);
-            }
+            // 3. 更新游標與字卡 UI
+            double x = timelineCurrentSeconds * PIXELS_PER_SECOND;
+            PlayheadLine.X1 = x;
+            PlayheadLine.X2 = x;
+            UpdateSubtitleOverlay(timelineCurrentSeconds);
         }
 
         private void AutoScrollTimer_Tick(object sender, EventArgs e)
@@ -412,24 +471,14 @@ namespace framework
         private void UpdatePlayheadPosition(double mouseX)
         {
             double duration = currentVideoDuration;
-            if (duration <= 0 && VideoPlayer.NaturalDuration.HasTimeSpan)
-            {
-                duration = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
-                currentVideoDuration = duration;
-            }
-
             if (duration <= 0) return;
-            double maxMouseX = duration * PIXELS_PER_SECOND;
 
+            double maxMouseX = duration * PIXELS_PER_SECOND;
             double safeMouseX = Math.Max(0, Math.Min(mouseX, maxMouseX));
 
-            PlayheadLine.X1 = safeMouseX;
-            PlayheadLine.X2 = safeMouseX;
-
+            // 計算目標秒數後，直接呼叫我們的新方法
             double targetSeconds = safeMouseX / PIXELS_PER_SECOND;
-            VideoPlayer.Position = TimeSpan.FromSeconds(targetSeconds);
-            UpdateSubtitleOverlay(targetSeconds);
-            UpdateVideoVisibility(targetSeconds);
+            SyncVideoPlayerToTimeline(targetSeconds);
         }
         private void UpdateVideoVisibility(double currentTimelineSeconds)
         {
@@ -558,9 +607,16 @@ namespace framework
                 timelineOffsetX     = 0;
                 timelineTransform.X = 0;
             };
-
-            VideoPlayer.Play(); 
-            playheadTimer.Start();
+            // 確保把大會計的碼錶與虛擬時間全部歸零！
+            timelineCurrentSeconds = 0;
+            lastTickTime = DateTime.Now;
+            VideoPlayer.Position = TimeSpan.Zero;
+            VideoPlayer.Play();
+            // 確保有啟動計時器
+            if (playheadTimer != null)
+            {
+                playheadTimer.Start();
+            }
         }
 
         private void VideoPlayer_MediaOpened(object sender, RoutedEventArgs e)
@@ -618,8 +674,19 @@ namespace framework
         //  播放器控制
         private void BtnPlay_Click(object sender, RoutedEventArgs e)
         {
-            VideoPlayer.Play();
-            playheadTimer.Start();
+            lastTickTime = DateTime.Now; // 🌟 極度重要：重新對準真實時間
+
+            // 檢查目前紅線是不是在片段內，在的話才叫影片播放
+            var currentSegment = videoSegments.FirstOrDefault(s =>
+                timelineCurrentSeconds >= s.TimelineStartSeconds &&
+                timelineCurrentSeconds < s.TimelineStartSeconds + s.TimelineDurationSeconds);
+
+            if (currentSegment != null)
+            {
+                VideoPlayer.Play();
+            }
+
+            playheadTimer.Start(); // 啟動時間軸
         }
 
         private void BtnPause_Click(object sender, RoutedEventArgs e)
@@ -1453,8 +1520,39 @@ namespace framework
 
             double delta = e.GetPosition(this).X - trackDragStartMouseX;
             double newLeft = trackDragStartLeft + delta;
+
+            // 預設邊界為整個時間軸的 0 ~ 總長度
+            double minLeft = 0;
             double maxLeft = currentVideoDuration * PIXELS_PER_SECOND - draggedTrackItemUI.Width;
-            newLeft = Math.Clamp(newLeft, 0, Math.Max(0, maxLeft));
+
+            // 【新增】：影片軌的防撞邏輯 (不包含字卡)
+            if (draggedTrackItemData is VideoSegmentData video)
+            {
+                foreach (var other in videoSegments)
+                {
+                    if (other == video) continue; // 跳過自己不比較
+
+                    double otherLeft = other.TimelineStartSeconds * PIXELS_PER_SECOND;
+                    double otherRight = (other.TimelineStartSeconds + other.TimelineDurationSeconds) * PIXELS_PER_SECOND;
+
+                    // 使用最初點擊時的左側座標 (trackDragStartLeft) 來判斷鄰居是誰
+                    if (otherLeft < trackDragStartLeft)
+                    {
+                        // 在我左邊的鄰居，它的右邊界就是我能往左推的極限
+                        if (otherRight > minLeft) minLeft = otherRight;
+                    }
+                    else if (otherLeft > trackDragStartLeft)
+                    {
+                        // 在我右邊的鄰居，它的左邊界減去我的寬度，就是我能往右推的極限
+                        if (otherLeft - draggedTrackItemUI.Width < maxLeft)
+                            maxLeft = otherLeft - draggedTrackItemUI.Width;
+                    }
+                }
+            }
+
+            // 強制將座標限制在安全的鄰居範圍內
+            if (maxLeft < minLeft) maxLeft = minLeft; // 防呆
+            newLeft = Math.Clamp(newLeft, minLeft, Math.Max(0, maxLeft));
 
             Canvas.SetLeft(draggedTrackItemUI, newLeft);
             double newStartSeconds = newLeft / PIXELS_PER_SECOND;
@@ -1463,11 +1561,11 @@ namespace framework
             draggedTrackItemData.TimelineStartSeconds = newStartSeconds;
 
             // 針對個別物件更新面板文字框
-            if (draggedTrackItemData is VideoSegmentData video)
+            if (draggedTrackItemData is VideoSegmentData videoData)
             {
-                video.InternalOffset = newStartSeconds;
+                //刪除這行videoData.InternalOffset = newStartSeconds;
                 TxtStartTime.Text = newStartSeconds.ToString("F1");
-                TxtEndTime.Text = (newStartSeconds + video.TimelineDurationSeconds).ToString("F1");
+                TxtEndTime.Text = (newStartSeconds + videoData.TimelineDurationSeconds).ToString("F1");
             }
             else if (draggedTrackItemData is SubtitleStyle subtitle)
             {
@@ -1514,6 +1612,28 @@ namespace framework
             double newLeft = currentLeft + e.HorizontalChange;
             double newWidth = container.Width - e.HorizontalChange;
 
+            // 【新增】：往左拉長時，不能吃到左邊鄰居的尾巴
+            if (itemData is VideoSegmentData video)
+            {
+                double minLeft = 0;
+                foreach (var other in videoSegments)
+                {
+                    if (other == video) continue;
+                    if (other.TimelineStartSeconds < video.TimelineStartSeconds)
+                    {
+                        double otherRight = (other.TimelineStartSeconds + other.TimelineDurationSeconds) * PIXELS_PER_SECOND;
+                        if (otherRight > minLeft) minLeft = otherRight;
+                    }
+                }
+
+                // 如果左推超過極限，就停在鄰居的邊界上
+                if (newLeft < minLeft)
+                {
+                    newLeft = minLeft;
+                    newWidth = currentLeft + container.Width - newLeft; // 重新計算寬度
+                }
+            }
+
             if (newWidth < 10 || newLeft < 0) return;
 
             Canvas.SetLeft(container, newLeft);
@@ -1522,13 +1642,13 @@ namespace framework
             itemData.TimelineStartSeconds = newLeft / PIXELS_PER_SECOND;
             itemData.TimelineDurationSeconds = newWidth / PIXELS_PER_SECOND;
 
-            if (itemData is VideoSegmentData video)
+            if (itemData is VideoSegmentData videoData)
             {
-                video.InternalOffset = video.TimelineStartSeconds;
-                TxtStartTime.Text = video.TimelineStartSeconds.ToString("F1");
-                TxtEndTime.Text = (video.TimelineStartSeconds + video.TimelineDurationSeconds).ToString("F1");
-                if (VideoPlayer.Position.TotalSeconds < video.TimelineStartSeconds)
-                    VideoPlayer.Position = TimeSpan.FromSeconds(video.TimelineStartSeconds);
+                //刪除這行videoData.InternalOffset = videoData.TimelineStartSeconds;
+                TxtStartTime.Text = videoData.TimelineStartSeconds.ToString("F1");
+                TxtEndTime.Text = (videoData.TimelineStartSeconds + videoData.TimelineDurationSeconds).ToString("F1");
+                if (VideoPlayer.Position.TotalSeconds < videoData.TimelineStartSeconds)
+                    VideoPlayer.Position = TimeSpan.FromSeconds(videoData.TimelineStartSeconds);
             }
             else if (itemData is SubtitleStyle subtitle)
             {
@@ -1545,16 +1665,36 @@ namespace framework
             double currentLeft = Canvas.GetLeft(container);
             double maxEnd = currentVideoDuration * PIXELS_PER_SECOND;
 
-            if (newWidth < 10 || (currentLeft + newWidth) > maxEnd) return;
+            // 【新增】：往右拉長時，不能吃到右邊鄰居的頭
+            if (itemData is VideoSegmentData video)
+            {
+                foreach (var other in videoSegments)
+                {
+                    if (other == video) continue;
+                    if (other.TimelineStartSeconds > video.TimelineStartSeconds)
+                    {
+                        double otherLeft = other.TimelineStartSeconds * PIXELS_PER_SECOND;
+                        if (otherLeft < maxEnd) maxEnd = otherLeft;
+                    }
+                }
+            }
+
+            // 如果右推超過極限，就停在鄰居的邊界上
+            if ((currentLeft + newWidth) > maxEnd)
+            {
+                newWidth = maxEnd - currentLeft;
+            }
+
+            if (newWidth < 10) return;
 
             container.Width = newWidth;
             itemData.TimelineDurationSeconds = newWidth / PIXELS_PER_SECOND;
 
-            if (itemData is VideoSegmentData video)
+            if (itemData is VideoSegmentData videoData)
             {
-                TxtEndTime.Text = (video.TimelineStartSeconds + video.TimelineDurationSeconds).ToString("F1");
-                if (VideoPlayer.Position.TotalSeconds > (video.TimelineStartSeconds + video.TimelineDurationSeconds))
-                    VideoPlayer.Position = TimeSpan.FromSeconds(video.TimelineStartSeconds);
+                TxtEndTime.Text = (videoData.TimelineStartSeconds + videoData.TimelineDurationSeconds).ToString("F1");
+                if (VideoPlayer.Position.TotalSeconds > (videoData.TimelineStartSeconds + videoData.TimelineDurationSeconds))
+                    VideoPlayer.Position = TimeSpan.FromSeconds(videoData.TimelineStartSeconds);
             }
             else if (itemData is SubtitleStyle subtitle)
             {
