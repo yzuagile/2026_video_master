@@ -297,6 +297,7 @@ namespace framework
                 PlayheadLine.X1 = x;
                 PlayheadLine.X2 = x;
                 UpdateSubtitleOverlay(currentTime);
+                UpdateVideoVisibility(currentTime);
             }
         }
 
@@ -410,7 +411,6 @@ namespace framework
         }
         private void UpdatePlayheadPosition(double mouseX)
         {
-            // 防呆：確保獲取到正確的影片總長度
             double duration = currentVideoDuration;
             if (duration <= 0 && VideoPlayer.NaturalDuration.HasTimeSpan)
             {
@@ -419,28 +419,34 @@ namespace framework
             }
 
             if (duration <= 0) return;
-
-            // 計算邊界並限制滑鼠座標
-            // 計算影片總長度對應的像素寬度 (最大允許的 X 座標)
             double maxMouseX = duration * PIXELS_PER_SECOND;
 
-            // 將滑鼠 X 座標強制限制在 0 到 maxMouseX 之間
-            // 如果 mouseX 小於 0，safeMouseX 會等於 0；如果超過 maxMouseX，就會停在 maxMouseX
             double safeMouseX = Math.Max(0, Math.Min(mouseX, maxMouseX));
 
-            // 1. 即時更新紅線的視覺位置 (改成使用 safeMouseX)
             PlayheadLine.X1 = safeMouseX;
             PlayheadLine.X2 = safeMouseX;
 
-            // 2. 計算拖曳到的時間點 (改成使用 safeMouseX)
             double targetSeconds = safeMouseX / PIXELS_PER_SECOND;
-
-            // 3. 同步更新影片進度
             VideoPlayer.Position = TimeSpan.FromSeconds(targetSeconds);
-            // 拖曳游標時即時更新字卡
             UpdateSubtitleOverlay(targetSeconds);
+            UpdateVideoVisibility(targetSeconds);
         }
+        private void UpdateVideoVisibility(double currentTimelineSeconds)
+        {
+            if (VideoPlayer == null) return;
 
+            bool isInsideAnySegment = false;
+            foreach (var segment in videoSegments)
+            {
+                if (currentTimelineSeconds >= segment.TimelineStartSeconds &&
+                    currentTimelineSeconds <= segment.TimelineStartSeconds + segment.TimelineDurationSeconds)
+                {
+                    isInsideAnySegment = true;
+                    break;
+                }
+            }
+            VideoPlayer.Visibility = isInsideAnySegment ? Visibility.Visible : Visibility.Hidden;
+        }
         //  ScrollViewer 滾輪
         private void TimelineScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
@@ -1086,16 +1092,6 @@ namespace framework
 
             TxtStartTime.Text = "0.0";
             TxtEndTime.Text = durationInSeconds.ToString("F1");
-
-            // 灰色底層
-            var fullBar = new System.Windows.Shapes.Rectangle
-            {
-                Width  = totalWidth, Height = 35,
-                Fill   = new SolidColorBrush(Color.FromRgb(80, 80, 80)),
-                RadiusX = 3, RadiusY = 3, IsHitTestVisible = false
-            };
-            Canvas.SetLeft(fullBar, 0); Canvas.SetTop(fullBar, 45);
-            VideoTrackCanvas.Children.Add(fullBar);
             VideoTrackCanvas.Children.Add(segmentGrid);
         }
 
