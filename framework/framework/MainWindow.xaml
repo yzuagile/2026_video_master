@@ -1,6 +1,7 @@
 ﻿<Window x:Class="framework.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:framework"
         Title="VideoMaster 2026 剪輯軟體"
         WindowState="Maximized"
         KeyDown="MainWindow_KeyDown">
@@ -106,37 +107,110 @@
                                           Checked="StyleControl_CheckChanged" Unchecked="StyleControl_CheckChanged"/>
                             </UniformGrid>
 
+                            <!-- ── 顏色區：2×2 色塊按鈕格 ── -->
+                            <TextBlock Text="顏色設定（點擊色塊開啟調色盤）："
+                                       FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                            <UniformGrid Columns="2" Margin="0,0,0,10" Rows="2">
+
                             <!-- 字體顏色 -->
-                            <TextBlock Text="字體顏色（Hex / #RRGGBB）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="36"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox Name="TxtFontColor" Text="#FFFFFF" Padding="5"
-                                         TextChanged="StyleControl_TextChanged"/>
-                                <Border Grid.Column="1" Name="FontColorSwatch" Width="28" Height="28"
-                                        Margin="4,0,0,0" CornerRadius="4"
-                                        Background="White" BorderBrush="#AAA" BorderThickness="1"/>
-                            </Grid>
+                            <StackPanel Margin="0,0,6,6">
+                                    <TextBlock Text="字體顏色" FontSize="11" Foreground="Gray" Margin="0,0,0,3"/>
+                                    <!-- 三層疊：棋盤格底層 / 顏色 Border（Window NameScope）/ 透明按鈕攔截點擊 -->
+                                    <Grid Height="36" Cursor="Hand">
+                                        <Border CornerRadius="4" BorderBrush="#888" BorderThickness="1" ClipToBounds="True">
+                                            <Rectangle>
+                                                <Rectangle.Fill>
+                                                    <DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
+                                                        <DrawingBrush.Drawing>
+                                                            <DrawingGroup>
+                                                                <GeometryDrawing Brush="#CCCCCC"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,8,8"/></GeometryDrawing.Geometry></GeometryDrawing>
+                                                                <GeometryDrawing Brush="#FFFFFF"><GeometryDrawing.Geometry><GeometryGroup><RectangleGeometry Rect="0,0,4,4"/><RectangleGeometry Rect="4,4,4,4"/></GeometryGroup></GeometryDrawing.Geometry></GeometryDrawing>
+                                                            </DrawingGroup>
+                                                        </DrawingBrush.Drawing>
+                                                    </DrawingBrush>
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </Border>
+                                        <Border x:Name="FontColorSwatch" CornerRadius="4" BorderBrush="#888" BorderThickness="1" Background="White"/>
+                                        <Button Name="BtnPickFontColor" Background="Transparent" BorderBrush="Transparent" ToolTip="點擊開啟調色盤" Click="BtnPickFontColor_Click"/>
+                                    </Grid>
+                                </StackPanel>
 
-                            <!-- 字體陰影色 -->
-                            <TextBlock Text="陰影顏色（Hex）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="36"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox Name="TxtShadowColor" Text="#000000" Padding="5"
-                                         TextChanged="StyleControl_TextChanged"/>
-                                <Border Grid.Column="1" Name="ShadowColorSwatch" Width="28" Height="28"
-                                        Margin="4,0,0,0" CornerRadius="4"
-                                        Background="Black" BorderBrush="#AAA" BorderThickness="1"/>
-                            </Grid>
+                                <!-- 陰影顏色 -->
+                                <StackPanel Margin="0,0,0,6">
+                                    <TextBlock Text="陰影顏色" FontSize="11" Foreground="Gray" Margin="0,0,0,3"/>
+                                    <Grid Height="36" Cursor="Hand">
+                                        <Border CornerRadius="4" BorderBrush="#888" BorderThickness="1" ClipToBounds="True">
+                                            <Rectangle>
+                                                <Rectangle.Fill>
+                                                    <DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
+                                                        <DrawingBrush.Drawing>
+                                                            <DrawingGroup>
+                                                                <GeometryDrawing Brush="#CCCCCC"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,8,8"/></GeometryDrawing.Geometry></GeometryDrawing>
+                                                                <GeometryDrawing Brush="#FFFFFF"><GeometryDrawing.Geometry><GeometryGroup><RectangleGeometry Rect="0,0,4,4"/><RectangleGeometry Rect="4,4,4,4"/></GeometryGroup></GeometryDrawing.Geometry></GeometryDrawing>
+                                                            </DrawingGroup>
+                                                        </DrawingBrush.Drawing>
+                                                    </DrawingBrush>
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </Border>
+                                        <Border x:Name="ShadowColorSwatch" CornerRadius="4" BorderBrush="#888" BorderThickness="1" Background="Black"/>
+                                        <Button Name="BtnPickShadowColor" Background="Transparent" BorderBrush="Transparent" ToolTip="點擊開啟調色盤" Click="BtnPickShadowColor_Click"/>
+                                    </Grid>
+                                </StackPanel>
 
-                            <!-- 外框寬度 & 顏色 -->
+                                <!-- 外框顏色 -->
+                                <StackPanel Margin="0,0,6,0">
+                                    <TextBlock Text="外框顏色" FontSize="11" Foreground="Gray" Margin="0,0,0,3"/>
+                                    <Grid Height="36" Cursor="Hand">
+                                        <Border CornerRadius="4" BorderBrush="#888" BorderThickness="1" ClipToBounds="True">
+                                            <Rectangle>
+                                                <Rectangle.Fill>
+                                                    <DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
+                                                        <DrawingBrush.Drawing>
+                                                            <DrawingGroup>
+                                                                <GeometryDrawing Brush="#CCCCCC"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,8,8"/></GeometryDrawing.Geometry></GeometryDrawing>
+                                                                <GeometryDrawing Brush="#FFFFFF"><GeometryDrawing.Geometry><GeometryGroup><RectangleGeometry Rect="0,0,4,4"/><RectangleGeometry Rect="4,4,4,4"/></GeometryGroup></GeometryDrawing.Geometry></GeometryDrawing>
+                                                            </DrawingGroup>
+                                                        </DrawingBrush.Drawing>
+                                                    </DrawingBrush>
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </Border>
+                                        <Border x:Name="BorderColorSwatch" CornerRadius="4" BorderBrush="#888" BorderThickness="1" Background="Black"/>
+                                        <Button Name="BtnPickBorderColor" Background="Transparent" BorderBrush="Transparent" ToolTip="點擊開啟調色盤" Click="BtnPickBorderColor_Click"/>
+                                    </Grid>
+                                </StackPanel>
+
+                                <!-- 背景顏色 -->
+                                <StackPanel Margin="0,0,0,0">
+                                    <TextBlock Text="背景顏色" FontSize="11" Foreground="Gray" Margin="0,0,0,3"/>
+                                    <Grid Height="36" Cursor="Hand">
+                                        <Border CornerRadius="4" BorderBrush="#888" BorderThickness="1" ClipToBounds="True">
+                                            <Rectangle>
+                                                <Rectangle.Fill>
+                                                    <DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
+                                                        <DrawingBrush.Drawing>
+                                                            <DrawingGroup>
+                                                                <GeometryDrawing Brush="#CCCCCC"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,8,8"/></GeometryDrawing.Geometry></GeometryDrawing>
+                                                                <GeometryDrawing Brush="#FFFFFF"><GeometryDrawing.Geometry><GeometryGroup><RectangleGeometry Rect="0,0,4,4"/><RectangleGeometry Rect="4,4,4,4"/></GeometryGroup></GeometryDrawing.Geometry></GeometryDrawing>
+                                                            </DrawingGroup>
+                                                        </DrawingBrush.Drawing>
+                                                    </DrawingBrush>
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </Border>
+                                        <Border x:Name="BgColorSwatch" CornerRadius="4" BorderBrush="#888" BorderThickness="1" Background="Transparent"/>
+                                        <Button Name="BtnPickBgColor" Background="Transparent" BorderBrush="Transparent" ToolTip="點擊開啟調色盤（透明 = A 設為 0）" Click="BtnPickBgColor_Click"/>
+                                    </Grid>
+                                </StackPanel>
+
+                            </UniformGrid>
+
+                            <!-- 外框寬度 -->
                             <TextBlock Text="外框寬度（Border Width）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <Grid Margin="0,0,0,4">
+                            <Grid Margin="0,0,0,10">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="40"/>
@@ -148,34 +222,6 @@
                                 <TextBlock Grid.Column="1" Name="LblStrokeValue" Text="0"
                                            VerticalAlignment="Center" HorizontalAlignment="Center"
                                            FontWeight="Bold"/>
-                            </Grid>
-
-                            <TextBlock Text="外框顏色（Border Color）：" FontWeight="SemiBold" Margin="0,4,0,4"/>
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="36"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox Name="TxtBorderColor" Text="#000000" Padding="5"
-                                         TextChanged="StyleControl_TextChanged"/>
-                                <Border Grid.Column="1" Name="BorderColorSwatch" Width="28" Height="28"
-                                        Margin="4,0,0,0" CornerRadius="4"
-                                        Background="Black" BorderBrush="#AAA" BorderThickness="1"/>
-                            </Grid>
-
-                            <!-- 背景色 -->
-                            <TextBlock Text="字卡背景色（Hex，透明輸入 #00000000）："
-                                       FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="36"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox Name="TxtBgColor" Text="#00000000" Padding="5"
-                                         TextChanged="StyleControl_TextChanged"/>
-                                <Border Grid.Column="1" Name="BgColorSwatch" Width="28" Height="28"
-                                        Margin="4,0,0,0" CornerRadius="4"
-                                        Background="Transparent" BorderBrush="#AAA" BorderThickness="1"/>
                             </Grid>
 
                             <!-- 位置設定 -->
@@ -401,5 +447,29 @@
                 </StackPanel>
             </ScrollViewer>
         </Border>
+                <!-- ===== 調色盤 Popup（置於 Window 根層，避免 NameScope 隔離與視覺樹問題）===== -->
+        <Popup x:Name="PopupFontColor" StaysOpen="False"
+               AllowsTransparency="True" Placement="Bottom"
+               PlacementTarget="{Binding ElementName=BtnPickFontColor}">
+            <local:ColorPickerPopup x:Name="PickerFontColor"/>
+        </Popup>
+
+        <Popup x:Name="PopupShadowColor" StaysOpen="False"
+               AllowsTransparency="True" Placement="Bottom"
+               PlacementTarget="{Binding ElementName=BtnPickShadowColor}">
+            <local:ColorPickerPopup x:Name="PickerShadowColor"/>
+        </Popup>
+
+        <Popup x:Name="PopupBorderColor" StaysOpen="False"
+               AllowsTransparency="True" Placement="Bottom"
+               PlacementTarget="{Binding ElementName=BtnPickBorderColor}">
+            <local:ColorPickerPopup x:Name="PickerBorderColor"/>
+        </Popup>
+
+        <Popup x:Name="PopupBgColor" StaysOpen="False"
+               AllowsTransparency="True" Placement="Bottom"
+               PlacementTarget="{Binding ElementName=BtnPickBgColor}">
+            <local:ColorPickerPopup x:Name="PickerBgColor"/>
+        </Popup>
     </Grid>
 </Window>

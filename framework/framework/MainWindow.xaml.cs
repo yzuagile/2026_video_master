@@ -162,14 +162,27 @@ namespace framework
     //  主視窗
     public partial class MainWindow : Window
     {
+        // ── 調色盤 ColorConfirmed handler 快取（確保 -= 能取消同一個 instance）
+        private Action<Color>? _handlerFontColor;
+        private Action<Color>? _handlerShadowColor;
+        private Action<Color>? _handlerBorderColor;
+        private Action<Color>? _handlerBgColor;
+
+        // ── 顏色字串欄位（原本是 XAML TextBlock，現在改為純 string 儲存）
+        private string _fontColorHex   = "#FFFFFFFF";
+        private string _shadowColorHex = "#FF000000";
+        private string _borderColorHex = "#FF000000";
+        private string _bgColorHex     = "#00000000";
+
+        // ── 基本狀態
         private string currentVideoPath     = "";
-        private double currentVideoDuration = 0; // 影片持續時間（秒）
+        private double currentVideoDuration = 0;
         private string pendingSubtitleText  = "";
 
         // 字卡清單（新系統，對應時間軸字卡軌）
         private List<SubtitleStyle> subtitleList = new();
 
-        // ─時間軸字卡軌：目前選取的字卡 Border
+        // 時間軸字卡軌：目前選取的字卡 Border
         private Border? selectedSubtitleCard = null;
 
         // Overlay Canvas 字卡對應表
@@ -183,7 +196,7 @@ namespace framework
 
         // 播放頭計時器
         private System.Windows.Threading.DispatcherTimer playheadTimer;
-        private System.Windows.Threading.DispatcherTimer autoScrollTimer;
+        private System.Windows.Threading.DispatcherTimer autoScrollTimerInstance;
         private const double PIXELS_PER_SECOND = 20;
         private DateTime lastTickTime = DateTime.Now;     // 用來計算現實中過了幾秒
         private double timelineCurrentSeconds = 0;        // 時間軸的虛擬時鐘 (紅線的真正位置)
@@ -192,10 +205,11 @@ namespace framework
         private bool isDraggingPlayhead  = false;
         private bool wasPlayingBeforeDrag = false;
 
-        //  時間軸平移
+        // 時間軸平移
         private TranslateTransform timelineTransform = new TranslateTransform();
         private double timelineOffsetX = 0;
 
+        // ── 影像片段拖曳狀態
         private bool isDraggingTrackItem = false;
         private Grid? draggedTrackItemUI = null;
         private ITimelineTrackItem? draggedTrackItemData = null;
@@ -291,8 +305,8 @@ namespace framework
             playheadTimer = new() { Interval = TimeSpan.FromMilliseconds(30) };
             playheadTimer.Tick += PlayheadTimer_Tick;
 
-            autoScrollTimer = new() { Interval = TimeSpan.FromMilliseconds(30) };
-            autoScrollTimer.Tick += AutoScrollTimer_Tick;
+            autoScrollTimerInstance = new() { Interval = TimeSpan.FromMilliseconds(30) };
+            autoScrollTimerInstance.Tick += autoScrollTimerInstance_Tick;
         }
 
         private void PlayheadTimer_Tick(object sender, EventArgs e)
@@ -360,7 +374,7 @@ namespace framework
             UpdateSubtitleOverlay(timelineCurrentSeconds);
         }
 
-        private void AutoScrollTimer_Tick(object sender, EventArgs e)
+        private void autoScrollTimerInstance_Tick(object sender, EventArgs e)
         {
             if (!isDraggingPlayhead) return;
             
@@ -432,7 +446,7 @@ namespace framework
                     }
 
                     // 開始拖曳時 啟動自動捲動計時器
-                    autoScrollTimer.Start();
+                    autoScrollTimerInstance.Start();
 
                     // 使用「限制後」的座標來更新位置，確保紅線不越界
                     UpdatePlayheadPosition(clickX);
@@ -459,7 +473,7 @@ namespace framework
                 {
                     element.ReleaseMouseCapture();
                 }
-                autoScrollTimer.Stop();
+                autoScrollTimerInstance.Stop();
                 if (wasPlayingBeforeDrag)
                 {
                     VideoPlayer.Play();
@@ -695,14 +709,95 @@ namespace framework
             playheadTimer.Stop();
         }
 
-        //  字卡設定面板 ── 即時預覽事件
+        // ══════════════════════════════════════
+        //  字卡設定面板 ── 調色盤按鈕事件
+        // ══════════════════════════════════════
+
+        private void BtnPickFontColor_Click(object sender, RoutedEventArgs e)
+            => OpenColorPicker(PopupFontColor, PickerFontColor, ref _fontColorHex, FontColorSwatch, ref _handlerFontColor);
+
+        private void BtnPickShadowColor_Click(object sender, RoutedEventArgs e)
+            => OpenColorPicker(PopupShadowColor, PickerShadowColor, ref _shadowColorHex, ShadowColorSwatch, ref _handlerShadowColor);
+
+        private void BtnPickBorderColor_Click(object sender, RoutedEventArgs e)
+            => OpenColorPicker(PopupBorderColor, PickerBorderColor, ref _borderColorHex, BorderColorSwatch, ref _handlerBorderColor);
+
+        private void BtnPickBgColor_Click(object sender, RoutedEventArgs e)
+            => OpenColorPicker(PopupBgColor, PickerBgColor, ref _bgColorHex, BgColorSwatch, ref _handlerBgColor);
+
+        /// <summary>
+        /// 開啟調色盤 Popup。套用後更新色塊背景與對應的 hex 字串欄位。
+        /// </summary>
+        private void OpenColorPicker(System.Windows.Controls.Primitives.Popup popup,
+                                     ColorPickerPopup picker,
+                                     ref string hexField,
+                                     Border swatch,
+                                     ref Action<Color>? storedHandler)
+        {
+            // 先抓當前值（ref 不能在 lambda 內直接捕捉，存成區域變數）
+            string currentHex = hexField;
+
+            Color? init = TryParseColorFromHex(currentHex);
+            if (init.HasValue) picker.SetColorInternal(init.Value);
+
+            if (storedHandler != null)
+                picker.ColorConfirmed -= storedHandler;
+
+            // 用 setter action 迴避 ref 無法進 lambda 的限制
+            Action<string> setHex = GetHexSetter(swatch, ref hexField);
+
+            storedHandler = (Color c) =>
+            {
+                // WPF BrushConverter 使用 #AARRGGBB 格式
+                string hex = $"#{c.A:X2}{c.R:X2}{c.G:X2}{c.B:X2}";
+                setHex(hex);
+                swatch.Background = new SolidColorBrush(c);
+                popup.IsOpen      = false;
+                RefreshMiniPreview();
+            };
+
+            picker.ColorConfirmed += storedHandler;
+            popup.IsOpen = true;
+        }
+
+        // ref 欄位無法進 lambda，透過比對 swatch 物件取得對應的 setter
+        private Action<string> GetHexSetter(Border swatch, ref string _)
+        {
+            if (swatch == FontColorSwatch)   return v => _fontColorHex   = v;
+            if (swatch == ShadowColorSwatch) return v => _shadowColorHex = v;
+            if (swatch == BorderColorSwatch) return v => _borderColorHex = v;
+            if (swatch == BgColorSwatch)     return v => _bgColorHex     = v;
+            return _ => { };
+        }
+
+        private static Color? TryParseColorFromHex(string? hex)
+        {
+            if (string.IsNullOrWhiteSpace(hex)) return null;
+            hex = hex.Trim().TrimStart('#');
+            try
+            {
+                if (hex.Length == 6)
+                    // #RRGGBB → 不透明
+                    return Color.FromArgb(255,
+                        Convert.ToByte(hex[0..2], 16),
+                        Convert.ToByte(hex[2..4], 16),
+                        Convert.ToByte(hex[4..6], 16));
+                if (hex.Length == 8)
+                    // #AARRGGBB（WPF 標準，BrushConverter 使用的格式）
+                    return Color.FromArgb(
+                        Convert.ToByte(hex[0..2], 16),
+                        Convert.ToByte(hex[2..4], 16),
+                        Convert.ToByte(hex[4..6], 16),
+                        Convert.ToByte(hex[6..8], 16));
+            }
+            catch { }
+            return null;
+        }
+
+        // ── 仍保留 SelectionChanged / CheckBox / Slider 用於字體選項的即時預覽
         private void StyleControl_Changed(object sender, SelectionChangedEventArgs e) => RefreshMiniPreview();
 
-        private void StyleControl_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            RefreshColorSwatch(sender as TextBox);
-            RefreshMiniPreview();
-        }
+        private void StyleControl_TextChanged(object sender, TextChangedEventArgs e) => RefreshMiniPreview();
 
         private void StyleControl_CheckChanged(object sender, RoutedEventArgs e) => RefreshMiniPreview();
 
@@ -711,28 +806,6 @@ namespace framework
             if (LblStrokeValue != null)
                 LblStrokeValue.Text = ((int)SliderStroke.Value).ToString();
             RefreshMiniPreview();
-        }
-
-        private void RefreshColorSwatch(TextBox? tb)
-        {
-            if (tb == null) return;
-            var (swatch, _) = GetSwatchForTextBox(tb);
-            if (swatch == null) return;
-            try
-            {
-                var bc = new BrushConverter();
-                swatch.Background = (Brush)bc.ConvertFromString(tb.Text)!;
-            }
-            catch { /* 格式不合法時忽略 */ }
-        }
-
-        private (Border? swatch, string field) GetSwatchForTextBox(TextBox tb)
-        {
-            if (tb == TxtFontColor)   return (FontColorSwatch,   "font");
-            if (tb == TxtShadowColor) return (ShadowColorSwatch, "shadow");
-            if (tb == TxtBorderColor) return (BorderColorSwatch, "border");
-            if (tb == TxtBgColor)     return (BgColorSwatch,     "bg");
-            return (null, "");
         }
 
         private void RefreshMiniPreview()
@@ -760,11 +833,11 @@ namespace framework
                 FontWeight      = (ComboFontWeight?.SelectedItem  as ComboBoxItem)?.Content?.ToString() ?? "Normal",
                 IsItalic        = ChkItalic?.IsChecked    == true,
                 IsUnderline     = ChkUnderline?.IsChecked == true,
-                FontColor       = TxtFontColor?.Text    ?? "#FFFFFF",
-                ShadowColor     = TxtShadowColor?.Text  ?? "#000000",
+                FontColor       = _fontColorHex,
+                ShadowColor     = _shadowColorHex,
                 StrokeWidth     = SliderStroke?.Value   ?? 0,
-                StrokeColor     = TxtBorderColor?.Text  ?? "#000000",
-                BackgroundColor = TxtBgColor?.Text      ?? "#00000000",
+                StrokeColor     = _borderColorHex,
+                BackgroundColor = _bgColorHex,
                 Position        = (ComboPosition?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "底部置中（Bottom Center）",
                 StartSeconds    = startSec,
                 DurationSeconds = durSec,
@@ -786,7 +859,8 @@ namespace framework
             style.Text = TxtSubtitle.Text;
 
             // 若未手動填寫開始時間，使用目前播放位置
-            style.StartSeconds = VideoPlayer.Position.TotalSeconds;
+            if (style.StartSeconds <= 0 && VideoPlayer.Position.TotalSeconds > 0)
+                style.StartSeconds = VideoPlayer.Position.TotalSeconds;
 
             if (TxtSubStartTime != null)
             {
@@ -818,15 +892,11 @@ namespace framework
             newStyle.DurationSeconds = tag.DurationSeconds;
 
             int idx = subtitleList.IndexOf(tag);
-            if (idx >= 0)
-            {
-                var cmd = new UpdateSubtitleCommand(subtitleList, tag, newStyle, idx, () => {
-                    RedrawSubtitleCards();
-                    RebuildOverlayCards();
-                });
-                commandHistory.ExecuteCommand(cmd);
-                MessageBox.Show("字卡樣式已更新！", "完成");
-            }
+            if (idx >= 0) subtitleList[idx] = newStyle;
+
+            RedrawSubtitleCards();
+            RebuildOverlayCards();
+            MessageBox.Show("字卡樣式已更新！", "完成");
         }
 
         //  字卡 Overlay（疊在影片上，可拖曳）
@@ -1108,15 +1178,23 @@ namespace framework
         {
             TxtSubtitle.Text        = s.Text;
             TxtFontSize.Text        = s.FontSize.ToString();
-            TxtFontColor.Text       = s.FontColor;
-            TxtShadowColor.Text     = s.ShadowColor;
-            TxtBorderColor.Text     = s.StrokeColor;
-            TxtBgColor.Text         = s.BackgroundColor;
             SliderStroke.Value      = s.StrokeWidth;
             ChkItalic.IsChecked     = s.IsItalic;
             ChkUnderline.IsChecked  = s.IsUnderline;
             TxtSubStartTime.Text    = s.StartSeconds.ToString("F1");
             TxtSubDuration.Text     = s.DurationSeconds.ToString("F1");
+            
+            // 更新字串欄位並同步色塊背景
+            void ApplyColor(ref string field, Border swatch, string hex)
+            {
+                field = hex;
+                var c = TryParseColorFromHex(hex);
+                if (c.HasValue) swatch.Background = new SolidColorBrush(c.Value);
+            }
+            ApplyColor(ref _fontColorHex,   FontColorSwatch,   s.FontColor);
+            ApplyColor(ref _shadowColorHex, ShadowColorSwatch, s.ShadowColor);
+            ApplyColor(ref _borderColorHex, BorderColorSwatch, s.StrokeColor);
+            ApplyColor(ref _bgColorHex,     BgColorSwatch,     s.BackgroundColor);
 
             SelectComboByContent(ComboFontFamily, s.FontFamily);
             SelectComboByContent(ComboFontWeight, s.FontWeight);
@@ -1159,6 +1237,16 @@ namespace framework
 
             TxtStartTime.Text = "0.0";
             TxtEndTime.Text = durationInSeconds.ToString("F1");
+
+            // 灰色底層
+            var fullBar = new System.Windows.Shapes.Rectangle
+            {
+                Width  = totalWidth, Height = 35,
+                Fill   = new SolidColorBrush(Color.FromRgb(80, 80, 80)),
+                RadiusX = 3, RadiusY = 3, IsHitTestVisible = false
+            };
+            Canvas.SetLeft(fullBar, 0); Canvas.SetTop(fullBar, 45);
+            VideoTrackCanvas.Children.Add(fullBar);
             VideoTrackCanvas.Children.Add(segmentGrid);
         }
 
