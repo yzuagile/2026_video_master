@@ -1,5 +1,7 @@
-﻿namespace framework.Export
+﻿using System.Collections.Generic;
+namespace framework.Export
 {
+    public record VideoSegmentExportData(double TimelineStart, double InternalOffset, double Duration);
     public enum VideoFormat
     {
         MP4,
@@ -40,5 +42,6 @@
         public double TrimEndSeconds { get; init; }
         public double DurationSeconds { get; init; }
         public string OutputPath { get; set; } = string.Empty;
+        public List<VideoSegmentExportData> Segments { get; init; } = new();
     }
 }

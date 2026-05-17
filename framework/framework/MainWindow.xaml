@@ -54,7 +54,7 @@
 
 <!-- ===== 字卡設定頁 ===== -->
                 <TabItem Header="📝 字卡設定 (F1)" FontSize="14">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Hidden">
                         <StackPanel Margin="12">
 
                             <TextBlock Text="🎬 字卡設定面板" FontWeight="Bold" FontSize="15"
@@ -349,105 +349,107 @@
 
         <!-- ===== 時間軸區域 ===== -->
         <Border Grid.Row="2" Background="#252526" Margin="10,0,10,10">
-            <ScrollViewer x:Name="TimelineScrollViewer" 
-                          PreviewMouseWheel="TimelineScrollViewer_PreviewMouseWheel"
-                          HorizontalScrollBarVisibility="Auto" 
-                          VerticalScrollBarVisibility="Auto">
-                <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Background="Transparent" 
-                            MouseDown="VideoTrackCanvas_MouseDown">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-                    <!-- 工具列 -->
-                    <StackPanel Orientation="Horizontal" Background="#2D2D2D">
-                        <Button Name="BtnPlay" Content="▶ 播放" Margin="5" Padding="15,2" 
-                                Background="#4CAF50" Foreground="White" BorderThickness="0" 
-                                Cursor="Hand" Click="BtnPlay_Click"/>
-                        <Button Name="BtnPause" Content="⏸ 暫停" Margin="0,5,15,5" Padding="15,2" 
-                                Background="#FF9800" Foreground="White" BorderThickness="0" 
-                                Cursor="Hand" Click="BtnPause_Click"/>
-                        
-                        <RadioButton Name="RadioSelect" Content="🏹 選取 (V)" IsChecked="True" 
-                                     Margin="5" Foreground="White" VerticalAlignment="Center" 
-                                     Checked="ToolRadioButton_Checked" Tag="Select"/>
-                        <RadioButton Name="RadioScissors" Content="✂️ 剪刀 (C)" 
-                                     Margin="5" Foreground="White" VerticalAlignment="Center" 
-                                     Checked="ToolRadioButton_Checked" Tag="Scissors"/>
-                        <Button x:Name="BtnDelete" Content="✖ 刪除 (Del)" 
-                                Click="BtnDelete_Click" 
-                                Margin="10,5,5,5" Padding="10,0" 
-                                Background="Transparent" Foreground="White" BorderThickness="0" 
-                                Cursor="Hand"/>
-                        <Button x:Name="BtnUndo" Content="↩ 撤銷 (Ctrl+Z)" 
-                                Click="BtnUndo_Click" 
-                                Margin="5,5,5,5" Padding="10,0" 
-                                Background="Transparent" Foreground="White" BorderThickness="0" 
-                                Cursor="Hand" ToolTip="復原上一個動作"/>
-                        <Button x:Name="BtnRedo" Content="↪ 重作 (Ctrl+Y)" 
-                                Click="BtnRedo_Click" 
-                                Margin="5,5,10,5" Padding="10,0" 
-                                Background="Transparent" Foreground="White" BorderThickness="0" 
-                                Cursor="Hand" ToolTip="重做上一個動作"/>
-                    </StackPanel>
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#2D2D2D">
+                    <Button Name="BtnPlay" Content="▶ 播放" Margin="5" Padding="15,2" 
+                            Background="#4CAF50" Foreground="White" BorderThickness="0" 
+                            Cursor="Hand" Click="BtnPlay_Click"/>
+                    <Button Name="BtnPause" Content="⏸ 暫停" Margin="0,5,15,5" Padding="15,2" 
+                            Background="#FF9800" Foreground="White" BorderThickness="0" 
+                            Cursor="Hand" Click="BtnPause_Click"/>
 
-                    <!-- 時間軸內容 -->
-                    <Grid Name="TimelineContentStack">
-                        <StackPanel Orientation="Vertical">
-
-                            <!-- 時間刻度 -->
-                            <Grid Height="25" Margin="0,0,0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Canvas Grid.Column="1" Name="TimeRulerCanvas" 
-                                        Background="#2D2D2D" HorizontalAlignment="Left"/>
-                            </Grid>
-                            
-                            <!-- 字卡軌 -->
-                            <Grid Height="40" Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="4*"/>
-                                    <ColumnDefinition Width="207*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="💬 字卡軌" Foreground="#AAAAFF"
-                                           VerticalAlignment="Center" HorizontalAlignment="Center"
-                                           FontSize="11"/>
-                                <Canvas Grid.Column="1" Name="SubtitleTrackCanvas"
-                                        Background="#1A1A2E" HorizontalAlignment="Left"
-                                        Grid.ColumnSpan="3"/>
-                            </Grid>
-
-                            <!-- 影像軌 -->
-                            <Grid Height="120" Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="4*"/>
-                                    <ColumnDefinition Width="207*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="🎬 影像軌" Foreground="White" 
-                                           VerticalAlignment="Center" HorizontalAlignment="Center"
-                                           FontSize="11"/>
-                                <Canvas Grid.Column="1" Name="VideoTrackCanvas" 
-                                        Background="#1E1E1E" HorizontalAlignment="Left" 
-                                        Grid.ColumnSpan="3"/>
-                            </Grid>
-                        </StackPanel>
-
-                         <!-- 播放游標（紅線） -->
-                        <Canvas Name="PlayheadCanvas" IsHitTestVisible="False" 
-                                Margin="80,0,0,0" Panel.ZIndex="10">
-                            <Line x:Name="PlayheadLine" 
-                          X1="0" Y1="0" X2="0" Y2="190"   
-                          Stroke="Red" StrokeThickness="2" 
-                          Visibility="Collapsed"/>
-                        </Canvas>
-                    </Grid>
+                    <RadioButton Name="RadioSelect" Content="🏹 選取 (V)" IsChecked="True" 
+                                 Margin="5" Foreground="White" VerticalAlignment="Center" 
+                                 Checked="ToolRadioButton_Checked" Tag="Select"/>
+                    <RadioButton Name="RadioScissors" Content="✂️ 剪刀 (C)" 
+                                 Margin="5" Foreground="White" VerticalAlignment="Center" 
+                                 Checked="ToolRadioButton_Checked" Tag="Scissors"/>
+                    <Button x:Name="BtnDelete" Content="✖ 刪除 (Del)" 
+                            Click="BtnDelete_Click" 
+                            Margin="10,5,5,5" Padding="10,0" 
+                            Background="Transparent" Foreground="White" BorderThickness="0" 
+                            Cursor="Hand"/>
+                    <Button x:Name="BtnUndo" Content="↩ 撤銷 (Ctrl+Z)" 
+                            Click="BtnUndo_Click" 
+                            Margin="5,5,5,5" Padding="10,0" 
+                            Background="Transparent" Foreground="White" BorderThickness="0" 
+                            Cursor="Hand" ToolTip="復原上一個動作"/>
+                    <Button x:Name="BtnRedo" Content="↪ 重作 (Ctrl+Y)" 
+                            Click="BtnRedo_Click" 
+                            Margin="5,5,10,5" Padding="10,0" 
+                            Background="Transparent" Foreground="White" BorderThickness="0" 
+                            Cursor="Hand" ToolTip="重做上一個動作"/>
                 </StackPanel>
-            </ScrollViewer>
+
+                <ScrollViewer Grid.Row="1" x:Name="TimelineScrollViewer" 
+                              PreviewMouseWheel="TimelineScrollViewer_PreviewMouseWheel"
+                              HorizontalScrollBarVisibility="Hidden" 
+                              VerticalScrollBarVisibility="Auto">
+
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Background="Transparent" 
+                                MouseDown="VideoTrackCanvas_MouseDown">
+
+                        <Grid Name="TimelineContentStack">
+                            <StackPanel Orientation="Vertical">
+
+                                <Grid Height="25" Margin="0,0,0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Canvas Grid.Column="1" Name="TimeRulerCanvas" 
+                                            Background="#2D2D2D" HorizontalAlignment="Left"/>
+                                </Grid>
+
+                                <Grid Height="40" Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="4*"/>
+                                        <ColumnDefinition Width="207*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="💬 字卡軌" Foreground="#AAAAFF"
+                                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                                               FontSize="11"/>
+                                    <Canvas Grid.Column="1" Name="SubtitleTrackCanvas"
+                                            Background="#1A1A2E" HorizontalAlignment="Left"
+                                            Grid.ColumnSpan="3"/>
+                                </Grid>
+
+                                <Grid Height="120" Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="4*"/>
+                                        <ColumnDefinition Width="207*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="🎬 影像軌" Foreground="White" 
+                                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                                               FontSize="11"/>
+                                    <Canvas Grid.Column="1" Name="VideoTrackCanvas" 
+                                            Background="#1E1E1E" HorizontalAlignment="Left" 
+                                            Grid.ColumnSpan="3"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <Canvas Name="PlayheadCanvas" IsHitTestVisible="False" 
+                                    Margin="80,0,0,0" Panel.ZIndex="10">
+                                <Line x:Name="PlayheadLine" 
+                                      X1="0" Y1="0" X2="0" Y2="190"   
+                                      Stroke="Red" StrokeThickness="2" 
+                                      Visibility="Collapsed"/>
+                            </Canvas>
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
         </Border>
-                <!-- ===== 調色盤 Popup（置於 Window 根層，避免 NameScope 隔離與視覺樹問題）===== -->
+        <!-- ===== 調色盤 Popup（置於 Window 根層，避免 NameScope 隔離與視覺樹問題）===== -->
         <Popup x:Name="PopupFontColor" StaysOpen="False"
                AllowsTransparency="True" Placement="Bottom"
                PlacementTarget="{Binding ElementName=BtnPickFontColor}">

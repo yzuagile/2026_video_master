@@ -57,59 +57,83 @@ namespace framework
     //  FFmpeg 字幕濾鏡轉換器
     public static class SubtitleFilterBuilder
     {
-        public static string Build(IEnumerable<SubtitleStyle> styles, double videoDuration)
+        public static string Build(IEnumerable<SubtitleStyle> styles, double videoDuration,
+                                           double canvasW, double canvasH, double exportW, double exportH)
         {
             var filters = new List<string>();
+            double scaleX = (canvasW > 0 && exportW > 0) ? exportW / canvasW : 1.0;
+            double scaleY = (canvasH > 0 && exportH > 0) ? exportH / canvasH : 1.0;
+            double fontScale = scaleY;
 
             foreach (var s in styles)
             {
-                string fontPath    = ResolveFontPath(s.FontFamily);
-                string escapedText = s.Text
-                    .Replace("\\", "\\\\")
-                    .Replace("'",  "\\'")
-                    .Replace(":",  "\\:");
-
-                string fc     = ToFfmpegColor(s.FontColor,   1.0);
-                string sc     = ToFfmpegColor(s.StrokeColor, 1.0);
+                string fontPath = ResolveFontPath(s.FontFamily, s.FontWeight, s.IsItalic);
+                string escapedText = s.Text.Replace("\\", "\\\\").Replace("'", "\\'").Replace(":", "\\:");
+                string fc = ToFfmpegColor(s.FontColor, 1.0);
+                string sc = ToFfmpegColor(s.StrokeColor, 1.0);
                 string shadow = ToFfmpegColor(s.ShadowColor, 0.8);
 
-                (string x, string y) = ResolvePosition(s);
+                int scaledFontSize = Math.Max(1, (int)(s.FontSize * fontScale));
+                string x, y;
 
-                string bold   = (s.FontWeight == "Bold" || s.FontWeight == "ExtraBold") ? "1" : "0";
-                string italic = s.IsItalic ? "1" : "0";
+                if (s.UseCustomPosition)
+                {
+                    x = ((int)(s.CustomX * scaleX)).ToString();
+                    y = ((int)(s.CustomY * scaleY)).ToString();
+                }
+                else
+                {
+                    int padY = (int)(30 * scaleY);
+                    int padX = (int)(20 * scaleX);
+                    int topY = (int)(20 * scaleY);
 
-                double endSec  = Math.Min(s.StartSeconds + s.DurationSeconds, videoDuration);
-                string enable  = $"between(t\\,{s.StartSeconds:F3}\\,{endSec:F3})";
+                    y = s.Position switch
+                    {
+                        "頂部置中（Top Center）" => topY.ToString(),
+                        "中央置中（Middle Center）" => "(h-text_h)/2",
+                        "底部靠左（Bottom Left）" => $"h-text_h-{padY}",
+                        "底部靠右（Bottom Right）" => $"h-text_h-{padY}",
+                        _ => $"h-text_h-{padY}"
+                    };
+                    x = s.Position switch
+                    {
+                        "底部靠左（Bottom Left）" => padX.ToString(),
+                        "底部靠右（Bottom Right）" => $"w-text_w-{padX}",
+                        _ => "(w-text_w)/2"
+                    };
+                }
+
+                double endSec = Math.Min(s.StartSeconds + s.DurationSeconds, videoDuration);
+                string enable = $"between(t\\,{s.StartSeconds:F3}\\,{endSec:F3})";
 
                 var parts = new List<string>
                 {
                     $"fontfile='{fontPath}'",
                     $"text='{escapedText}'",
-                    $"fontsize={s.FontSize}",
+                    $"fontsize={scaledFontSize}", // 帶入放大的字體
                     $"fontcolor={fc}",
-                    $"bold={bold}",
-                    $"italic={italic}",
-                    $"x={x}",
+                    $"x={x}",                     // 帶入轉換後的座標
                     $"y={y}",
                     $"enable='{enable}'"
                 };
-
                 if (s.StrokeWidth > 0)
                 {
-                    parts.Add($"borderw={s.StrokeWidth}");
+                    int scaledStroke = Math.Max(1, (int)(s.StrokeWidth * fontScale));
+                    parts.Add($"borderw={scaledStroke}");
                     parts.Add($"bordercolor={sc}");
                 }
 
-                parts.Add("shadowx=2");
-                parts.Add("shadowy=2");
+                parts.Add($"shadowx={(int)(2 * fontScale)}");
+                parts.Add($"shadowy={(int)(2 * fontScale)}");
                 parts.Add($"shadowcolor={shadow}");
 
                 if (!s.BackgroundColor.TrimStart('#').StartsWith("00"))
                 {
                     string bg = ToFfmpegColor(s.BackgroundColor, 1.0);
+                    int scaledBoxBorder = Math.Max(1, (int)(6 * fontScale));
                     parts.Add("box=1");
                     parts.Add($"boxcolor={bg}");
-                    parts.Add("boxborderw=6");
+                    parts.Add($"boxborderw={scaledBoxBorder}");
                 }
 
                 filters.Add("drawtext=" + string.Join(":", parts));
@@ -117,19 +141,45 @@ namespace framework
 
             return string.Join(",", filters);
         }
-
-        private static string ResolveFontPath(string fontFamily)
+        private static string ResolveFontPath(string fontFamily, string fontWeight, bool isItalic)
         {
-            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            bool isBold = fontWeight == "Bold" || fontWeight == "ExtraBold";
+            if (fontFamily.Equals("Arial", StringComparison.OrdinalIgnoreCase))
             {
-                { "微軟正黑體",       @"C\:/Windows/Fonts/msjh.ttc" },
-                { "新細明體",         @"C\:/Windows/Fonts/mingliu.ttc" },
-                { "標楷體",           @"C\:/Windows/Fonts/kaiu.ttf" },
-                { "Arial",            @"C\:/Windows/Fonts/arial.ttf" },
-                { "Times New Roman",  @"C\:/Windows/Fonts/times.ttf" },
-                { "Consolas",         @"C\:/Windows/Fonts/consola.ttf" },
-            };
-            return map.TryGetValue(fontFamily, out var path) ? path : @"C\:/Windows/Fonts/msjh.ttc";
+                if (isBold && isItalic) return @"C\:/Windows/Fonts/arialbi.ttf"; // 粗斜體
+                if (isBold) return @"C\:/Windows/Fonts/arialbd.ttf";             // 粗體
+                if (isItalic) return @"C\:/Windows/Fonts/ariali.ttf";            // 斜體
+                return @"C\:/Windows/Fonts/arial.ttf";                           // 一般
+            }
+            if (fontFamily.Equals("Times New Roman", StringComparison.OrdinalIgnoreCase))
+            {
+                if (isBold && isItalic) return @"C\:/Windows/Fonts/timesbi.ttf";
+                if (isBold) return @"C\:/Windows/Fonts/timesbd.ttf";
+                if (isItalic) return @"C\:/Windows/Fonts/timesi.ttf";
+                return @"C\:/Windows/Fonts/times.ttf";
+            }
+            if (fontFamily.Equals("Consolas", StringComparison.OrdinalIgnoreCase))
+            {
+                if (isBold && isItalic) return @"C\:/Windows/Fonts/consolaz.ttf";
+                if (isBold) return @"C\:/Windows/Fonts/consolab.ttf";
+                if (isItalic) return @"C\:/Windows/Fonts/consolai.ttf";
+                return @"C\:/Windows/Fonts/consola.ttf";
+            }
+            if (fontFamily.Equals("微軟正黑體", StringComparison.OrdinalIgnoreCase))
+            {
+                if (fontWeight == "Light") return @"C\:/Windows/Fonts/msjhl.ttc"; // 細體
+                if (isBold) return @"C\:/Windows/Fonts/msjhbd.ttc";               // 粗體
+                return @"C\:/Windows/Fonts/msjh.ttc";                             // 一般
+            }
+            if (fontFamily.Equals("新細明體", StringComparison.OrdinalIgnoreCase))
+            {
+                return @"C\:/Windows/Fonts/mingliu.ttc";
+            }
+            if (fontFamily.Equals("標楷體", StringComparison.OrdinalIgnoreCase))
+            {
+                return @"C\:/Windows/Fonts/kaiu.ttf";
+            }
+            return @"C\:/Windows/Fonts/msjh.ttc";
         }
 
         private static string ToFfmpegColor(string hex, double alphaOverride)
@@ -653,11 +703,24 @@ namespace framework
                 var exportWin = new ExportWindow(currentVideoDuration) { Owner = this };
                 if (exportWin.ShowDialog() != true) return;
 
-                // Create ExportSettings object with SubtitleText initialized
-                var subtitleText = subtitleList.Count > 0
-                    ? SubtitleFilterBuilder.Build(subtitleList, currentVideoDuration)
-                    : string.Empty;
+                double canvasW = SubtitleOverlayCanvas.ActualWidth;
+                double canvasH = SubtitleOverlayCanvas.ActualHeight;
+                double videoW = VideoPlayer.NaturalVideoWidth > 0 ? VideoPlayer.NaturalVideoWidth : 1920;
+                double videoH = VideoPlayer.NaturalVideoHeight > 0 ? VideoPlayer.NaturalVideoHeight : 1080;
+                double exportW = exportWin.OutputWidth > 0 ? exportWin.OutputWidth : videoW;
+                double exportH = exportWin.OutputHeight > 0 ? exportWin.OutputHeight : videoH;
 
+                var subtitleText = subtitleList.Count > 0
+                    ? SubtitleFilterBuilder.Build(subtitleList, currentVideoDuration, canvasW, canvasH, exportW, exportH)
+                    : string.Empty;
+                var segmentsToExport = videoSegments
+                    .OrderBy(s => s.TimelineStartSeconds)
+                    .Select(s => new VideoSegmentExportData(
+                        s.TimelineStartSeconds,
+                        s.InternalOffset,
+                        s.TimelineDurationSeconds
+                    ))
+                    .ToList();
                 var settings = new ExportSettings
                 {
                     Format = exportWin.SelectedFormat,
@@ -672,7 +735,8 @@ namespace framework
                     TrimStartSeconds = trimStartSeconds,
                     TrimEndSeconds = trimEndSeconds,
                     DurationSeconds = currentVideoDuration,
-                    SubtitleText = subtitleText // Initialize SubtitleText here
+                    SubtitleText = subtitleText,
+                    Segments = segmentsToExport
                 };
 
                 if (!AskSaveExportPath(settings)) return;
@@ -1237,16 +1301,6 @@ namespace framework
 
             TxtStartTime.Text = "0.0";
             TxtEndTime.Text = durationInSeconds.ToString("F1");
-
-            // 灰色底層
-            var fullBar = new System.Windows.Shapes.Rectangle
-            {
-                Width  = totalWidth, Height = 35,
-                Fill   = new SolidColorBrush(Color.FromRgb(80, 80, 80)),
-                RadiusX = 3, RadiusY = 3, IsHitTestVisible = false
-            };
-            Canvas.SetLeft(fullBar, 0); Canvas.SetTop(fullBar, 45);
-            VideoTrackCanvas.Children.Add(fullBar);
             VideoTrackCanvas.Children.Add(segmentGrid);
         }
 
