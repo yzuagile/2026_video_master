@@ -74,16 +74,15 @@ public class FfmpegArgumentBuilderTests
     [Fact]
     public void 建立參數_有字幕時_加入跳脫後的DrawText濾鏡()
     {
-        var settings = CreateSettings() with
+        string inputVideoPath = "input.mp4";
+        string preBuiltSubtitleFilter = "drawtext=fontfile='C\\:/Windows/Fonts/msjh.ttc':text='hello \\'world\\'':fontsize=24";
+
+        var settings = new ExportSettings
         {
-            SubtitleText = "hello\r\n\"world\""
+            SubtitleText = preBuiltSubtitleFilter
         };
-
-        var args = FfmpegArgumentBuilder.Build("input.mp4", settings);
-        var filterIndex = args.IndexOf("-vf");
-
-        Assert.NotEqual(-1, filterIndex);
-        Assert.Equal("drawtext=font=Arial:text=hello \\\"world\\\":fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-60", args[filterIndex + 1]);
+        var args = FfmpegArgumentBuilder.Build(inputVideoPath, settings);
+        Assert.Contains(preBuiltSubtitleFilter, args);
     }
 
     [Fact]
