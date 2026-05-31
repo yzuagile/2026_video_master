@@ -4,8 +4,10 @@
         xmlns:local="clr-namespace:framework"
         Title="VideoMaster 2026 剪輯軟體"
         WindowState="Maximized"
-        KeyDown="MainWindow_KeyDown">
-    <Grid>
+        PreviewKeyDown="MainWindow_PreviewKeyDown"
+        PreviewMouseDown="Window_PreviewMouseDown"
+        InputMethod.IsInputMethodEnabled="False">
+    <Grid Name="MainRootGrid" Focusable="True" Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="50"/>
             <RowDefinition Height="*"/>

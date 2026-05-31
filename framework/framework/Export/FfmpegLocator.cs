@@ -35,14 +35,6 @@ namespace framework.Export
             // 優先級 4: 常見位置
             candidates.AddRange(GetCommonFfmpegLocations());
 
-            // 優先級 5: PATH 環境變數
-            var pathResult = SearchPathEnvironment("ffmpeg.exe");
-            if (pathResult is not null)
-            {
-                return pathResult;
-            }
-
-            // 在候選項中搜尋
             foreach (var candidate in candidates)
             {
                 if (string.IsNullOrWhiteSpace(candidate))
@@ -60,16 +52,17 @@ namespace framework.Export
                 }
                 catch
                 {
-                    // 忽略存取錯誤，繼續尋找其他候選路徑
                 }
+            }
+
+            var pathResult = SearchPathEnvironment("ffmpeg.exe");
+            if (pathResult is not null)
+            {
+                return pathResult;
             }
 
             return null;
         }
-
-    /// <summary>
-    /// 將搜索路徑標準化，處理既是檔案也可能是目錄的情況
-    /// </summary>
     private static List<string> NormalizeSearchPath(string path)
     {
         var result = new List<string>();
