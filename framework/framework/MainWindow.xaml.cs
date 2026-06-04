@@ -946,9 +946,8 @@ namespace framework
             var style  = ReadStyleFromUI();
             style.Text = TxtSubtitle.Text;
 
-            // 若未手動填寫開始時間，使用目前播放位置
-            if (style.StartSeconds <= 0 && VideoPlayer.Position.TotalSeconds > 0)
-                style.StartSeconds = VideoPlayer.Position.TotalSeconds;
+            // 修正：字卡永遠從時間軸游標（紅線）位置開始
+            style.StartSeconds = timelineCurrentSeconds;
 
             if (TxtSubStartTime != null)
             {
