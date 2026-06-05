@@ -229,6 +229,7 @@ namespace framework
         private string currentVideoPath = "";
         private double currentVideoDuration = 0;
         private string pendingSubtitleText = "";
+        private bool currentVideoHasAudio = true;
 
         // 字卡清單（多軌系統，3 條字卡軌，最多同時顯示 3 個字卡）
         private const int SUBTITLE_TRACK_COUNT = 3;
@@ -734,6 +735,7 @@ namespace framework
             PlayheadLine.X1 = PlayheadLine.X2 = 0;
             PlayheadLine.Y1 = 0; PlayheadLine.Y2 = 310;
             playheadTimer.Start();
+            currentVideoHasAudio = VideoPlayer.HasAudio;
         }
 
         private void BtnExport_Click(object sender, RoutedEventArgs e)
@@ -1698,8 +1700,7 @@ namespace framework
             if (string.IsNullOrEmpty(ffmpegPath))
             { MessageBox.Show("找不到 FFmpeg 執行檔。請安裝或將 ffmpeg.exe 放在應用程式目錄。", "錯誤"); return false; }
 
-            var args = FfmpegArgumentBuilder.Build(currentVideoPath, settings);
-
+            var args = FfmpegArgumentBuilder.Build(currentVideoPath, settings, currentVideoHasAudio);
             try
             {
                 using var proc = new Process();

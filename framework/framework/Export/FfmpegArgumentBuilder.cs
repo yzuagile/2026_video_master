@@ -7,7 +7,7 @@ namespace framework.Export
 {
     public static class FfmpegArgumentBuilder
     {
-        public static List<string> Build(string inputVideoPath, ExportSettings settings)
+        public static List<string> Build(string inputVideoPath, ExportSettings settings, bool hasAudio = true)
         {
             var args = new List<string> { "-hide_banner", "-y", "-i", inputVideoPath };
 
@@ -28,7 +28,12 @@ namespace framework.Export
                     {
                         double gapDur = seg.TimelineStart - currentTime;
                         filterParts.Add($"[0:v]trim=start=0:end={gapDur.ToString("F3", CultureInfo.InvariantCulture)},drawbox=color=black:t=fill,setpts=PTS-STARTPTS[v{idx}]");
-                        filterParts.Add($"[0:a]atrim=start=0:end={gapDur.ToString("F3", CultureInfo.InvariantCulture)},volume=0,asetpts=PTS-STARTPTS[a{idx}]");
+
+                        if (hasAudio)
+                            filterParts.Add($"[0:a]atrim=start=0:end={gapDur.ToString("F3", CultureInfo.InvariantCulture)},volume=0,asetpts=PTS-STARTPTS[a{idx}]");
+                        else
+                            filterParts.Add($"anullsrc=channel_layout=stereo:sample_rate=44100,atrim=start=0:end={gapDur.ToString("F3", CultureInfo.InvariantCulture)},asetpts=PTS-STARTPTS[a{idx}]");
+
                         concatInputs += $"[v{idx}][a{idx}]";
                         idx++;
                     }
@@ -46,6 +51,7 @@ namespace framework.Export
                     currentVideoLabel = "[concatv]";
                     currentAudioLabel = "[concata]";
                 }
+
                 string vf = BuildVideoFilter(settings);
                 if (!string.IsNullOrWhiteSpace(vf))
                 {
@@ -57,6 +63,8 @@ namespace framework.Export
                 args.Add(string.Join(";", filterParts));
                 args.Add("-map");
                 args.Add(currentVideoLabel);
+
+                // ⭐ 4. 如果有合併聲音，才需要 map 聲音軌
                 args.Add("-map");
                 args.Add(currentAudioLabel);
             }
@@ -100,15 +108,18 @@ namespace framework.Export
                 args.Add("yuv420p");
             }
 
-            args.Add("-c:a");
-            args.Add(GetAudioCodecName(settings.AudioCodec));
-            args.Add("-b:a");
-            args.Add(settings.AudioBitrate + "k");
-
-            if (settings.AudioChannels > 0)
+            if (hasAudio)
             {
-                args.Add("-ac");
-                args.Add(settings.AudioChannels.ToString(CultureInfo.InvariantCulture));
+                args.Add("-c:a");
+                args.Add(GetAudioCodecName(settings.AudioCodec));
+                args.Add("-b:a");
+                args.Add(settings.AudioBitrate + "k");
+
+                if (settings.AudioChannels > 0)
+                {
+                    args.Add("-ac");
+                    args.Add(settings.AudioChannels.ToString(CultureInfo.InvariantCulture));
+                }
             }
 
             if (settings.EnableFastStart && settings.Format == VideoFormat.MP4)
