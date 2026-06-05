@@ -31,6 +31,17 @@ jobs:
     - name: Publish self-contained executable
       run: dotnet publish framework/framework/framework.csproj -c Release --self-contained --runtime win-x64 -o publish
 
+    - name: Download and inject FFmpeg
+      run: |
+        echo "正在下載 FFmpeg 最新版..."
+        curl.exe -L -o ffmpeg.zip https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip
+        
+        echo "正在解壓縮 ffmpeg.exe 並放進 publish 資料夾..."
+        # 使用 windows-latest 內建的 7z 工具，直接把 ffmpeg.exe 抽取出來丟進 publish 目錄
+        7z e ffmpeg.zip -o"publish" "ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe"
+        
+        echo "清理暫存壓縮檔..."
+        del ffmpeg.zip
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
