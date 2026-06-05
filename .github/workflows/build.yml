@@ -69,6 +69,37 @@ jobs:
         }
       shell: pwsh
 
+    - name: Generate HTML coverage report
+      if: ${{ always() }}
+      run: |
+        dotnet tool install -g dotnet-reportgenerator-globaltool
+        reportgenerator -reports:"framework/VideoMaster.Tests/TestResults/**/coverage.cobertura.xml" -targetdir:"coverage-report" -reporttypes:"Html;HtmlSummary;Badges" -assemblyfilters:"+VideoMaster*"
+      shell: pwsh
+
+    - name: Upload HTML coverage report
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: Coverage Report (HTML)
+        path: coverage-report/
+
+    - name: Add detailed coverage link to summary
+      if: ${{ always() }}
+      run: |
+        $summary = @"
+        
+        ## Detailed Coverage Report
+        
+         See the **Coverage Report (HTML)** artifact for interactive coverage analysis including:
+        - Package-level coverage breakdown
+        - Class-level and method-level metrics
+        - Branch coverage analysis
+        - Uncovered code navigation
+        "@
+        
+        Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $summary
+      shell: pwsh
+
     - name: Build app
       run: dotnet build framework/framework/framework.csproj -c Release --no-restore
 
