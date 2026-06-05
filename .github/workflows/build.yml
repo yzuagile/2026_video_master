@@ -26,7 +26,11 @@ jobs:
 
     - name: Run tests
       run: |
-        dotnet test framework/VideoMaster.Tests/VideoMaster.Tests.csproj -c Release --no-restore --logger "trx;LogFileName=TestResults/results.trx"
+        dotnet test framework/VideoMaster.Tests/VideoMaster.Tests.csproj -c Release --no-restore \
+          --logger "trx;LogFileName=TestResults/results.trx" \
+          --results-directory framework/VideoMaster.Tests/TestResults \
+          --collect:"XPlat Code Coverage" \
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
 
     - name: Publish test report
       uses: dorny/test-reporter@v3
@@ -36,8 +40,39 @@ jobs:
         path: "framework/**/TestResults/*.trx"
         reporter: dotnet-trx
         use-actions-summary: 'true'
-      env:
+      env:  
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload coverage report
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: Coverage Report
+        path: framework/VideoMaster.Tests/TestResults/**/*.xml
+
+    - name: Parse and display coverage summary
+      if: ${{ always() }}
+      run: |
+        $xmlPath = Get-Item -Path "framework/VideoMaster.Tests/TestResults/**/coverage.cobertura.xml" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($xmlPath) {
+          [xml]$xml = Get-Content $xmlPath.FullName
+          $lineCoverage = $xml.coverage.'line-rate'
+          $branchCoverage = $xml.coverage.'branch-rate'
+          $linePercent = [Math]::Round([double]$lineCoverage * 100, 2)
+          $branchPercent = [Math]::Round([double]$branchCoverage * 100, 2)
+          
+          $summary = @"
+        ## Code Coverage Report
+        
+        | Metric | Coverage |
+        |--------|----------|
+        | Line Coverage | $linePercent% |
+        | Branch Coverage | $branchPercent% |
+        "@
+          
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $summary
+        }
+      shell: pwsh
 
     - name: Build app
       run: dotnet build framework/framework/framework.csproj -c Release --no-restore
@@ -45,17 +80,6 @@ jobs:
     - name: Publish self-contained executable
       run: dotnet publish framework/framework/framework.csproj -c Release --self-contained --runtime win-x64 -o publish
 
-    - name: Download and inject FFmpeg
-      run: |
-        echo "正在下載 FFmpeg 最新版..."
-        curl.exe -L -o ffmpeg.zip https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip
-        
-        echo "正在解壓縮 ffmpeg.exe 並放進 publish 資料夾..."
-        # 使用 windows-latest 內建的 7z 工具，直接把 ffmpeg.exe 抽取出來丟進 publish 目錄
-        7z e ffmpeg.zip -o"publish" "ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe"
-        
-        echo "清理暫存壓縮檔..."
-        del ffmpeg.zip
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
