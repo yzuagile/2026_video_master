@@ -24,21 +24,21 @@ namespace framework
     //  字卡樣式資料模型
     public class SubtitleStyle : ITimelineTrackItem
     {
-        public string Text { get; set; } = "";
-        public string FontFamily { get; set; } = "微軟正黑體";
-        public double FontSize { get; set; } = 24;
-        public string FontWeight { get; set; } = "Normal";
-        public bool IsItalic { get; set; } = false;
-        public bool IsUnderline { get; set; } = false;
-        public string FontColor { get; set; } = "#FFFFFF";
-        public string ShadowColor { get; set; } = "#000000";
-        public double StrokeWidth { get; set; } = 0;
-        public string StrokeColor { get; set; } = "#000000";
+        public string Text            { get; set; } = "";
+        public string FontFamily      { get; set; } = "微軟正黑體";
+        public double FontSize        { get; set; } = 24;
+        public string FontWeight      { get; set; } = "Normal";
+        public bool   IsItalic        { get; set; } = false;
+        public bool   IsUnderline     { get; set; } = false;
+        public string FontColor       { get; set; } = "#FFFFFF";
+        public string ShadowColor     { get; set; } = "#000000";
+        public double StrokeWidth     { get; set; } = 0;
+        public string StrokeColor     { get; set; } = "#000000";
         public string BackgroundColor { get; set; } = "#00000000";
-        public string Position { get; set; } = "底部置中（Bottom Center）";
-        public double StartSeconds { get; set; } = 0;
+        public string Position        { get; set; } = "底部置中（Bottom Center）";
+        public double StartSeconds    { get; set; } = 0;
         public double DurationSeconds { get; set; } = 5;
-        public int TrackIndex { get; set; } = 0;  // 0~2，對應字卡軌 1~3
+        public int    TrackIndex      { get; set; } = 0;  // 0~2，對應字卡軌 1~3
 
         public double TimelineStartSeconds
         {
@@ -50,9 +50,9 @@ namespace framework
         }
 
         // 拖曳自訂座標
-        public bool UseCustomPosition { get; set; } = false;
-        public double CustomX { get; set; } = 0;
-        public double CustomY { get; set; } = 0;
+        public bool   UseCustomPosition { get; set; } = false;
+        public double CustomX           { get; set; } = 0;
+        public double CustomY           { get; set; } = 0;
     }
 
     //  FFmpeg 字幕濾鏡轉換器
@@ -187,9 +187,9 @@ namespace framework
         {
             hex = hex.TrimStart('#');
             string r, g, b;
-            if (hex.Length == 8) { r = hex[2..4]; g = hex[4..6]; b = hex[6..8]; }
+            if      (hex.Length == 8) { r = hex[2..4]; g = hex[4..6]; b = hex[6..8]; }
             else if (hex.Length == 6) { r = hex[0..2]; g = hex[2..4]; b = hex[4..6]; }
-            else { r = "FF"; g = "FF"; b = "FF"; }
+            else                      { r = "FF"; g = "FF"; b = "FF"; }
             int aa = (int)(alphaOverride * 255);
             return $"0x{r}{g}{b}{aa:X2}";
         }
@@ -201,11 +201,11 @@ namespace framework
 
             return s.Position switch
             {
-                "頂部置中（Top Center）" => ("(w-text_w)/2", "20"),
+                "頂部置中（Top Center）"    => ("(w-text_w)/2", "20"),
                 "中央置中（Middle Center）" => ("(w-text_w)/2", "(h-text_h)/2"),
-                "底部靠左（Bottom Left）" => ("20", "h-text_h-30"),
-                "底部靠右（Bottom Right）" => ("w-text_w-20", "h-text_h-30"),
-                _ => ("(w-text_w)/2", "h-text_h-30"),
+                "底部靠左（Bottom Left）"   => ("20",           "h-text_h-30"),
+                "底部靠右（Bottom Right）"  => ("w-text_w-20",  "h-text_h-30"),
+                _                           => ("(w-text_w)/2", "h-text_h-30"),
             };
         }
     }
@@ -220,27 +220,26 @@ namespace framework
         private Action<Color>? _handlerBgColor;
 
         // ── 顏色字串欄位（原本是 XAML TextBlock，現在改為純 string 儲存）
-        private string _fontColorHex = "#FFFFFFFF";
+        private string _fontColorHex   = "#FFFFFFFF";
         private string _shadowColorHex = "#FF000000";
         private string _borderColorHex = "#FF000000";
-        private string _bgColorHex = "#00000000";
+        private string _bgColorHex     = "#00000000";
 
         // ── 基本狀態
-        private string currentVideoPath = "";
+        private string currentVideoPath     = "";
         private double currentVideoDuration = 0;
-        private string pendingSubtitleText = "";
-        private bool currentVideoHasAudio = true;
+        private string pendingSubtitleText  = "";
+        private bool   currentVideoHasAudio = true;  // 無聲影片修正：記錄影片是否含有音訊
 
-        // 字卡清單（多軌系統，3 條字卡軌，最多同時顯示 3 個字卡）
+        // 字卡清單（新系統，對應時間軸字卡軌）
+        private List<SubtitleStyle> subtitleList = new();
+
+        // 多軌常數與 Canvas 陣列（SubtitleTrackCanvas0/1/2 定義於 XAML）
         private const int SUBTITLE_TRACK_COUNT = 3;
-        private List<SubtitleStyle>[] subtitleTracks = new List<SubtitleStyle>[]
-        {
-            new List<SubtitleStyle>(),
-            new List<SubtitleStyle>(),
-            new List<SubtitleStyle>()
-        };
-        // 整合所有軌道的唯讀屬性（用於匯出 / Overlay 等）
-        private IEnumerable<SubtitleStyle> AllSubtitles => subtitleTracks.SelectMany(t => t);
+        private Canvas[] SubtitleTrackCanvases => new Canvas[] { SubtitleTrackCanvas0, SubtitleTrackCanvas1, SubtitleTrackCanvas2 };
+
+        // 多軌拖曳：記錄拖曳開始時的來源軌道（-1 = 未拖曳）
+        private int draggedSubtitleSourceTrack = -1;
 
         // 時間軸字卡軌：目前選取的字卡 Border
         private Border? selectedSubtitleCard = null;
@@ -249,10 +248,10 @@ namespace framework
         private Dictionary<SubtitleStyle, Border> overlayBorderMap = new();
 
         // Overlay 拖曳狀態
-        private Border? draggedOverlayBorder = null;
-        private SubtitleStyle? draggedOverlayStyle = null;
-        private Point dragOffset;
-        private bool isDraggingOverlay = false;
+        private Border?        draggedOverlayBorder = null;
+        private SubtitleStyle? draggedOverlayStyle  = null;
+        private Point          dragOffset;
+        private bool           isDraggingOverlay    = false;
 
         // 播放頭計時器
         private System.Windows.Threading.DispatcherTimer playheadTimer;
@@ -260,9 +259,9 @@ namespace framework
         private const double PIXELS_PER_SECOND = 20;
         private DateTime lastTickTime = DateTime.Now;     // 用來計算現實中過了幾秒
         private double timelineCurrentSeconds = 0;        // 時間軸的虛擬時鐘 (紅線的真正位置)
-
+        
         // 記錄目前是否正在拖曳游標
-        private bool isDraggingPlayhead = false;
+        private bool isDraggingPlayhead  = false;
         private bool wasPlayingBeforeDrag = false;
 
         // 時間軸平移
@@ -283,22 +282,14 @@ namespace framework
         private List<SubtitleStyle>? preDragSubtitleOrder;
         private Dictionary<SubtitleStyle, double>? preDragSubtitleStarts;
 
-        // 多軌字卡：記錄拖曳開始時的軌道 index
-        private int draggedSubtitleSourceTrack = -1;
-        // 多軌字卡：3 個 Canvas 的對應陣列（在 XAML 中命名為 SubtitleTrackCanvas0/1/2）
-        private Canvas[] SubtitleTrackCanvases => new Canvas[]
-        {
-            SubtitleTrackCanvas0, SubtitleTrackCanvas1, SubtitleTrackCanvas2
-        };
-
         // 影像片段資料結構
         public class VideoSegmentData : ITimelineTrackItem
         {
-            public Guid Id { get; set; } = Guid.NewGuid(); // 唯一識別碼
-            public double TimelineStart { get; set; }                   // 在時間軸上的起始秒數 (Canvas Left)
+            public Guid   Id             { get; set; } = Guid.NewGuid(); // 唯一識別碼
+            public double TimelineStart  { get; set; }                   // 在時間軸上的起始秒數 (Canvas Left)
             public double InternalOffset { get; set; }                   // 影片內容的起始點 (從原始影片第幾秒開始撥)
-            public double Duration { get; set; }                   // 片段持續長度
-            public Grid UIElement { get; set; }                   // 對應的 UI 物件 (藍色框框)
+            public double Duration       { get; set; }                   // 片段持續長度
+            public Grid   UIElement      { get; set; }                   // 對應的 UI 物件 (藍色框框)
             public double TimelineStartSeconds
             {
                 get => TimelineStart; set => TimelineStart = value;
@@ -309,37 +300,35 @@ namespace framework
             }
         }
         private List<VideoSegmentData> videoSegments = new List<VideoSegmentData>();
-        private VideoSegmentData? selectedSegment = null;
+        private VideoSegmentData? selectedSegment    = null;
 
         // 使用「捷徑」屬性，讓舊代碼可以唯讀目前的數值（解決 CS0200 的讀取部分）
         private double trimStartSeconds => selectedSegment?.TimelineStart ?? 0;
-        private double trimEndSeconds => (selectedSegment?.TimelineStart + selectedSegment?.Duration) ?? currentVideoDuration;
-
+        private double trimEndSeconds   => (selectedSegment?.TimelineStart + selectedSegment?.Duration) ?? currentVideoDuration;
+        
         public enum EditorTool { Select, Scissors }
         private EditorTool currentTool = EditorTool.Select;
 
         public MainWindow()
         {
             InitializeComponent();
-            InitializePlayheadTimer();
+            InitializePlayheadTimer(); 
 
             this.KeyDown += MainWindow_PreviewKeyDown;
-
-            VideoTrackCanvas.MouseDown += (s, e) => ClearSelection();  // 點擊軌道空白處取消選取
+           
+            VideoTrackCanvas.MouseDown    += (s, e) => ClearSelection();  // 點擊軌道空白處取消選取
             foreach (var c in SubtitleTrackCanvases) c.MouseDown += (s, e) => ClearSelection();
 
-            TimeRulerCanvas.Background = Brushes.Transparent;
-            VideoTrackCanvas.Background = Brushes.Transparent;
-            // 字卡軌背景已在 XAML 中設定，這裡保持透明以便事件穿透
+            TimeRulerCanvas.Background     = Brushes.Transparent;
+            VideoTrackCanvas.Background    = Brushes.Transparent;
 
-            // 時間軸拖曳（播放頭）
-            var timelineCanvases = new List<Canvas> { TimeRulerCanvas, VideoTrackCanvas };
-            timelineCanvases.AddRange(SubtitleTrackCanvases);
-            foreach (var canvas in timelineCanvases)
+            // 時間軸拖曳（播放頭）— 原版邏輯，SubtitleTrackCanvases 取代單一 SubtitleTrackCanvas
+            foreach (var canvas in new Canvas[] { TimeRulerCanvas, VideoTrackCanvas }
+                         .Concat(SubtitleTrackCanvases).ToArray())
             {
                 canvas.PreviewMouseLeftButtonDown += Timeline_MouseLeftButtonDown;
-                canvas.PreviewMouseMove += Timeline_MouseMove;
-                canvas.PreviewMouseLeftButtonUp += Timeline_MouseLeftButtonUp;
+                canvas.PreviewMouseMove           += Timeline_MouseMove;
+                canvas.PreviewMouseLeftButtonUp   += Timeline_MouseLeftButtonUp;
             }
 
             this.Loaded += (s, e) =>
@@ -452,7 +441,7 @@ namespace framework
         private void autoScrollTimerInstance_Tick(object sender, EventArgs e)
         {
             if (!isDraggingPlayhead) return;
-
+            
             // 邊緣自動平移 (Auto-scroll)
             // 當 user 正在拖曳且滑鼠靠近視窗左右兩側時，讓時間軸自動滾動
             Point mousePosInWindow = Mouse.GetPosition(this);
@@ -686,8 +675,8 @@ namespace framework
         {
             var dlg = new OpenFileDialog { Filter = "影片檔案|*.mp4;*.mov;*.avi;*.mkv|所有檔案|*.*" };
             if (dlg.ShowDialog() != true) return;
-
-            currentVideoPath = dlg.FileName;
+            
+            currentVideoPath  = dlg.FileName;
             VideoPlayer.Source = new Uri(currentVideoPath);
 
             // 註冊 MediaOpened 事件，確保在影片資訊載入後才執行繪製
@@ -698,8 +687,8 @@ namespace framework
                 currentVideoDuration = dur;
 
                 double w = dur * PIXELS_PER_SECOND + 100;
-                TimeRulerCanvas.Width = w;
-                VideoTrackCanvas.Width = w;
+                TimeRulerCanvas.Width      = w;
+                VideoTrackCanvas.Width     = w;
                 foreach (var c in SubtitleTrackCanvases) c.Width = w;
                 TimelineContentStack.Width = w;
 
@@ -709,10 +698,10 @@ namespace framework
 
                 PlayheadLine.Visibility = Visibility.Visible;
                 PlayheadLine.X1 = PlayheadLine.X2 = 0;
-                PlayheadLine.Y1 = 0;
-                PlayheadLine.Y2 = 310;
+                PlayheadLine.Y1 = 0; 
+                PlayheadLine.Y2 = 190;
 
-                timelineOffsetX = 0;
+                timelineOffsetX     = 0;
                 timelineTransform.X = 0;
             };
             // 確保把大會計的碼錶與虛擬時間全部歸零！
@@ -730,12 +719,12 @@ namespace framework
         private void VideoPlayer_MediaOpened(object sender, RoutedEventArgs e)
         {
             if (!VideoPlayer.NaturalDuration.HasTimeSpan) return;
-            currentVideoDuration = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+            currentVideoDuration    = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
             PlayheadLine.Visibility = Visibility.Visible;
             PlayheadLine.X1 = PlayheadLine.X2 = 0;
-            PlayheadLine.Y1 = 0; PlayheadLine.Y2 = 310;
+            PlayheadLine.Y1 = 0; PlayheadLine.Y2 = 190;
             playheadTimer.Start();
-            currentVideoHasAudio = VideoPlayer.HasAudio;
+            currentVideoHasAudio = VideoPlayer.HasAudio;  // 無聲影片修正：偵測音訊軌是否存在
         }
 
         private void BtnExport_Click(object sender, RoutedEventArgs e)
@@ -755,8 +744,8 @@ namespace framework
                 double exportW = exportWin.OutputWidth > 0 ? exportWin.OutputWidth : videoW;
                 double exportH = exportWin.OutputHeight > 0 ? exportWin.OutputHeight : videoH;
 
-                var subtitleText = AllSubtitles.Any()
-                    ? SubtitleFilterBuilder.Build(AllSubtitles, currentVideoDuration, canvasW, canvasH, exportW, exportH)
+                var subtitleText = subtitleList.Count > 0
+                    ? SubtitleFilterBuilder.Build(subtitleList, currentVideoDuration, canvasW, canvasH, exportW, exportH)
                     : string.Empty;
                 var segmentsToExport = videoSegments
                     .OrderBy(s => s.TimelineStartSeconds)
@@ -861,7 +850,7 @@ namespace framework
                 string hex = $"#{c.A:X2}{c.R:X2}{c.G:X2}{c.B:X2}";
                 setHex(hex);
                 swatch.Background = new SolidColorBrush(c);
-                popup.IsOpen = false;
+                popup.IsOpen      = false;
                 RefreshMiniPreview();
             };
 
@@ -872,10 +861,10 @@ namespace framework
         // ref 欄位無法進 lambda，透過比對 swatch 物件取得對應的 setter
         private Action<string> GetHexSetter(Border swatch, ref string _)
         {
-            if (swatch == FontColorSwatch) return v => _fontColorHex = v;
+            if (swatch == FontColorSwatch)   return v => _fontColorHex   = v;
             if (swatch == ShadowColorSwatch) return v => _shadowColorHex = v;
             if (swatch == BorderColorSwatch) return v => _borderColorHex = v;
-            if (swatch == BgColorSwatch) return v => _bgColorHex = v;
+            if (swatch == BgColorSwatch)     return v => _bgColorHex     = v;
             return _ => { };
         }
 
@@ -932,23 +921,23 @@ namespace framework
             if (fontSize <= 0) fontSize = 24;
 
             double.TryParse(TxtSubStartTime?.Text, out double startSec);
-            double.TryParse(TxtSubDuration?.Text, out double durSec);
+            double.TryParse(TxtSubDuration?.Text,  out double durSec);
             if (durSec <= 0) durSec = 5;
 
             return new SubtitleStyle
             {
-                FontFamily = (ComboFontFamily?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "微軟正黑體",
-                FontSize = fontSize,
-                FontWeight = (ComboFontWeight?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "Normal",
-                IsItalic = ChkItalic?.IsChecked == true,
-                IsUnderline = ChkUnderline?.IsChecked == true,
-                FontColor = _fontColorHex,
-                ShadowColor = _shadowColorHex,
-                StrokeWidth = SliderStroke?.Value ?? 0,
-                StrokeColor = _borderColorHex,
+                FontFamily      = (ComboFontFamily?.SelectedItem  as ComboBoxItem)?.Content?.ToString() ?? "微軟正黑體",
+                FontSize        = fontSize,
+                FontWeight      = (ComboFontWeight?.SelectedItem  as ComboBoxItem)?.Content?.ToString() ?? "Normal",
+                IsItalic        = ChkItalic?.IsChecked    == true,
+                IsUnderline     = ChkUnderline?.IsChecked == true,
+                FontColor       = _fontColorHex,
+                ShadowColor     = _shadowColorHex,
+                StrokeWidth     = SliderStroke?.Value   ?? 0,
+                StrokeColor     = _borderColorHex,
                 BackgroundColor = _bgColorHex,
-                Position = (ComboPosition?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "底部置中（Bottom Center）",
-                StartSeconds = startSec,
+                Position        = (ComboPosition?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "底部置中（Bottom Center）",
+                StartSeconds    = startSec,
                 DurationSeconds = durSec,
             };
         }
@@ -964,17 +953,17 @@ namespace framework
             if (string.IsNullOrWhiteSpace(TxtSubtitle.Text))
             { MessageBox.Show("請先輸入字卡內容！", "提示"); return; }
 
-            var style = ReadStyleFromUI();
+            var style  = ReadStyleFromUI();
             style.Text = TxtSubtitle.Text;
 
-            // 字卡永遠從時間軸游標（紅線）位置開始
+            // 字卡從時間軸游標位置開始
             style.StartSeconds = timelineCurrentSeconds;
 
             // 自動選擇：找出在游標時間點上「沒有字卡」的軌道（最小 index 優先）
             int targetTrack = -1;
             for (int i = 0; i < SUBTITLE_TRACK_COUNT; i++)
             {
-                bool occupied = subtitleTracks[i].Any(s =>
+                bool occupied = subtitleList.Any(s => s.TrackIndex == i &&
                     style.StartSeconds < s.StartSeconds + s.DurationSeconds &&
                     style.StartSeconds + style.DurationSeconds > s.StartSeconds);
                 if (!occupied) { targetTrack = i; break; }
@@ -989,14 +978,14 @@ namespace framework
             if (TxtSubStartTime != null)
                 TxtSubStartTime.Text = style.StartSeconds.ToString("F1");
 
-            var cmd = new AddSubtitleCommand(subtitleTracks[targetTrack], style, () => {
+            var cmd = new AddSubtitleCommand(subtitleList, style, () => {
                 RedrawSubtitleCards();
                 RebuildOverlayCards();
             });
             commandHistory.ExecuteCommand(cmd);
 
             pendingSubtitleText = style.Text;
-            TxtSubtitle.Text = "";
+            TxtSubtitle.Text    = "";
         }
 
         // 更新所選字卡樣式
@@ -1009,16 +998,15 @@ namespace framework
             if (tag == null) return;
 
             var newStyle = ReadStyleFromUI();
-            newStyle.Text = tag.Text;
-            newStyle.StartSeconds = tag.StartSeconds;
+            newStyle.Text            = tag.Text;
+            newStyle.StartSeconds    = tag.StartSeconds;
             newStyle.DurationSeconds = tag.DurationSeconds;
-            newStyle.TrackIndex = tag.TrackIndex;
+            newStyle.TrackIndex      = tag.TrackIndex;  // 保留原軌道
 
-            var track = subtitleTracks[tag.TrackIndex];
-            int idx = track.IndexOf(tag);
+            int idx = subtitleList.IndexOf(tag);
             if (idx >= 0)
             {
-                var cmd = new UpdateSubtitleCommand(track, tag, newStyle, idx, () => {
+                var cmd = new UpdateSubtitleCommand(subtitleList, tag, newStyle, idx, () => {
                     RedrawSubtitleCards();
                     RebuildOverlayCards();
                 });
@@ -1039,7 +1027,7 @@ namespace framework
             SubtitleOverlayCanvas.Children.Clear();
             overlayBorderMap.Clear();
             draggedOverlayBorder = null;
-            draggedOverlayStyle = null;
+            draggedOverlayStyle  = null;
         }
 
         // 播放中即時更新 Overlay 可見性
@@ -1048,7 +1036,7 @@ namespace framework
             foreach (var kv in overlayBorderMap)
             {
                 bool active = currentTimeSec >= kv.Key.StartSeconds &&
-                              currentTimeSec < kv.Key.StartSeconds + kv.Key.DurationSeconds;
+                              currentTimeSec <  kv.Key.StartSeconds + kv.Key.DurationSeconds;
                 kv.Value.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
             }
         }
@@ -1058,21 +1046,21 @@ namespace framework
             SubtitleOverlayCanvas.Children.Clear();
             overlayBorderMap.Clear();
             draggedOverlayBorder = null;
-            draggedOverlayStyle = null;
-            foreach (var s in AllSubtitles)
+            draggedOverlayStyle  = null;
+            foreach (var s in subtitleList)
                 CreateOverlayCard(s);
         }
 
         private Border CreateOverlayCard(SubtitleStyle s)
         {
-            var tb = new TextBlock { TextWrapping = TextWrapping.Wrap };
+            var tb     = new TextBlock { TextWrapping = TextWrapping.Wrap };
             var border = new Border
             {
                 CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(10, 4, 10, 4),
-                Cursor = Cursors.SizeAll,
-                Tag = s,
-                Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 6, ShadowDepth = 2, Opacity = 0.7 }
+                Padding      = new Thickness(10, 4, 10, 4),
+                Cursor       = Cursors.SizeAll,
+                Tag          = s,
+                Effect       = new DropShadowEffect { Color = Colors.Black, BlurRadius = 6, ShadowDepth = 2, Opacity = 0.7 }
             };
             border.Child = tb;
 
@@ -1088,11 +1076,11 @@ namespace framework
                                       border.DesiredSize.Width,
                                       border.DesiredSize.Height);
             Canvas.SetLeft(border, initLeft);
-            Canvas.SetTop(border, initTop);
+            Canvas.SetTop(border,  initTop);
 
             border.MouseLeftButtonDown += OverlayCard_MouseDown;
-            border.MouseMove += OverlayCard_MouseMove;
-            border.MouseLeftButtonUp += OverlayCard_MouseUp;
+            border.MouseMove           += OverlayCard_MouseMove;
+            border.MouseLeftButtonUp   += OverlayCard_MouseUp;
 
             SubtitleOverlayCanvas.Children.Add(border);
             overlayBorderMap[s] = border;
@@ -1106,13 +1094,13 @@ namespace framework
             foreach (var child in SubtitleOverlayCanvas.Children)
                 if (child is Border other) other.BorderBrush = Brushes.Transparent;
 
-            b.BorderBrush = new SolidColorBrush(Color.FromRgb(0, 145, 255));
+            b.BorderBrush     = new SolidColorBrush(Color.FromRgb(0, 145, 255));
             b.BorderThickness = new Thickness(2);
 
             draggedOverlayBorder = b;
-            draggedOverlayStyle = b.Tag as SubtitleStyle;
-            isDraggingOverlay = true;
-            dragOffset = e.GetPosition(b);
+            draggedOverlayStyle  = b.Tag as SubtitleStyle;
+            isDraggingOverlay    = true;
+            dragOffset           = e.GetPosition(b);
 
             b.CaptureMouse();
             e.Handled = true;
@@ -1128,23 +1116,23 @@ namespace framework
 
             Point mouseOnCanvas = e.GetPosition(SubtitleOverlayCanvas);
             double newLeft = mouseOnCanvas.X - dragOffset.X;
-            double newTop = mouseOnCanvas.Y - dragOffset.Y;
+            double newTop  = mouseOnCanvas.Y - dragOffset.Y;
 
-            double maxLeft = SubtitleOverlayCanvas.ActualWidth - draggedOverlayBorder.ActualWidth;
-            double maxTop = SubtitleOverlayCanvas.ActualHeight - draggedOverlayBorder.ActualHeight;
+            double maxLeft = SubtitleOverlayCanvas.ActualWidth  - draggedOverlayBorder.ActualWidth;
+            double maxTop  = SubtitleOverlayCanvas.ActualHeight - draggedOverlayBorder.ActualHeight;
             newLeft = Math.Clamp(newLeft, 0, Math.Max(0, maxLeft));
-            newTop = Math.Clamp(newTop, 0, Math.Max(0, maxTop));
+            newTop  = Math.Clamp(newTop,  0, Math.Max(0, maxTop));
 
             Canvas.SetLeft(draggedOverlayBorder, newLeft);
-            Canvas.SetTop(draggedOverlayBorder, newTop);
+            Canvas.SetTop(draggedOverlayBorder,  newTop);
 
             SyncPositionToPanel(newLeft, newTop);
 
             if (draggedOverlayStyle != null)
             {
                 draggedOverlayStyle.UseCustomPosition = true;
-                draggedOverlayStyle.CustomX = newLeft;
-                draggedOverlayStyle.CustomY = newTop;
+                draggedOverlayStyle.CustomX           = newLeft;
+                draggedOverlayStyle.CustomY           = newTop;
             }
 
             e.Handled = true;
@@ -1168,31 +1156,31 @@ namespace framework
         {
             return position switch
             {
-                "頂部置中（Top Center）" => ((cw - bw) / 2, 20),
+                "頂部置中（Top Center）"    => ((cw - bw) / 2, 20),
                 "中央置中（Middle Center）" => ((cw - bw) / 2, (ch - bh) / 2),
-                "底部靠左（Bottom Left）" => (20, ch - bh - 30),
-                "底部靠右（Bottom Right）" => (cw - bw - 20, ch - bh - 30),
-                _ => ((cw - bw) / 2, ch - bh - 30),
+                "底部靠左（Bottom Left）"   => (20, ch - bh - 30),
+                "底部靠右（Bottom Right）"  => (cw - bw - 20, ch - bh - 30),
+                _                           => ((cw - bw) / 2, ch - bh - 30),
             };
         }
 
         private void ApplyStyleToTextBlock(TextBlock tb, Border border, SubtitleStyle s, bool scaleDown)
         {
             double scale = scaleDown ? 0.5 : 1.0;
-            var bc = new BrushConverter();
+            var bc       = new BrushConverter();
 
-            tb.Text = s.Text;
+            tb.Text       = s.Text;
             tb.FontFamily = new FontFamily(s.FontFamily);
-            tb.FontSize = s.FontSize * scale;
+            tb.FontSize   = s.FontSize * scale;
 
             tb.FontWeight = s.FontWeight switch
             {
-                "Bold" => FontWeights.Bold,
+                "Bold"      => FontWeights.Bold,
                 "ExtraBold" => FontWeights.ExtraBold,
-                "Light" => FontWeights.Light,
-                _ => FontWeights.Normal
+                "Light"     => FontWeights.Light,
+                _           => FontWeights.Normal
             };
-            tb.FontStyle = s.IsItalic ? FontStyles.Italic : FontStyles.Normal;
+            tb.FontStyle       = s.IsItalic   ? FontStyles.Italic    : FontStyles.Normal;
             tb.TextDecorations = s.IsUnderline ? TextDecorations.Underline : null;
 
             try { tb.Foreground = (Brush)bc.ConvertFromString(s.FontColor)!; }
@@ -1223,112 +1211,108 @@ namespace framework
         }
         private void RedrawSubtitleCards()
         {
-            // 清空所有字卡軌 Canvas
             foreach (var canvas in SubtitleTrackCanvases)
                 canvas.Children.Clear();
             selectedSubtitleCard = null;
 
-            for (int trackIdx = 0; trackIdx < SUBTITLE_TRACK_COUNT; trackIdx++)
+            var trackColors = new[]
             {
-                var canvas = SubtitleTrackCanvases[trackIdx];
-                foreach (var s in subtitleTracks[trackIdx])
+                Color.FromRgb(80,  50, 130),  // 軌 1：紫
+                Color.FromRgb(40,  90, 140),  // 軌 2：藍紫
+                Color.FromRgb(50, 110,  80),  // 軌 3：綠
+            };
+            var trackBorderColors = new[]
+            {
+                Color.FromRgb(40, 25, 70),
+                Color.FromRgb(20, 50, 80),
+                Color.FromRgb(25, 60, 40),
+            };
+
+            foreach (var s in subtitleList)
+            {
+                double leftX  = s.StartSeconds * PIXELS_PER_SECOND;
+                double width  = Math.Max(s.DurationSeconds * PIXELS_PER_SECOND, 10);
+                int    ti     = Math.Clamp(s.TrackIndex, 0, SUBTITLE_TRACK_COUNT - 1);
+                var    canvas = SubtitleTrackCanvases[ti];
+
+                var container = new Grid
                 {
-                    double leftX = s.StartSeconds * PIXELS_PER_SECOND;
-                    double width = Math.Max(s.DurationSeconds * PIXELS_PER_SECOND, 10);
+                    Width      = width,
+                    Height     = 32,
+                    Tag        = s,
+                    Cursor     = Cursors.SizeAll,
+                    Background = Brushes.Transparent
+                };
 
-                    var container = new Grid
-                    {
-                        Width = width,
-                        Height = 32,
-                        Tag = s,
-                        Cursor = Cursors.SizeAll,
-                        Background = Brushes.Transparent
-                    };
+                var card = new Border
+                {
+                    Background          = new SolidColorBrush(trackColors[ti]),
+                    CornerRadius        = new CornerRadius(4),
+                    BorderBrush         = new SolidColorBrush(trackBorderColors[ti]),
+                    BorderThickness     = new Thickness(1),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    Tag                 = s,
+                    ToolTip             = $"[軌{ti + 1}] {s.Text}\n{s.StartSeconds:F1}s → {s.StartSeconds + s.DurationSeconds:F1}s"
+                };
 
-                    // 不同軌道用略微不同的色調區分
-                    var trackColors = new[]
-                    {
-                        Color.FromRgb(80,  50, 130),   // 軌 1：紫色
-                        Color.FromRgb(40,  90, 140),   // 軌 2：藍紫
-                        Color.FromRgb(50, 110,  80),   // 軌 3：綠色
-                    };
-                    var trackBorderColors = new[]
-                    {
-                        Color.FromRgb(40, 25, 70),
-                        Color.FromRgb(20, 50, 80),
-                        Color.FromRgb(25, 60, 40),
-                    };
+                var tb = new TextBlock
+                {
+                    Text                = s.Text,
+                    Foreground          = Brushes.White,
+                    FontSize            = 11,
+                    VerticalAlignment   = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    TextTrimming        = TextTrimming.CharacterEllipsis,
+                    Padding             = new Thickness(6, 0, 4, 0)
+                };
+                card.Child = tb;
 
-                    var card = new Border
-                    {
-                        Background = new SolidColorBrush(trackColors[trackIdx]),
-                        CornerRadius = new CornerRadius(4),
-                        BorderBrush = new SolidColorBrush(trackBorderColors[trackIdx]),
-                        BorderThickness = new Thickness(1),
-                        HorizontalAlignment = HorizontalAlignment.Stretch,
-                        Tag = s,
-                        ToolTip = $"[軌{trackIdx + 1}] {s.Text}\n{s.StartSeconds:F1}s → {s.StartSeconds + s.DurationSeconds:F1}s"
-                    };
+                var leftHandle = new Thumb
+                {
+                    Width               = 8,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Cursor              = Cursors.SizeWE,
+                    Background          = Brushes.White,
+                    Opacity             = 0
+                };
+                leftHandle.DragDelta   += UnifiedLeftHandle_DragDelta;
+                leftHandle.DragStarted += (_, _) => { VideoPlayer.Pause(); playheadTimer.Stop(); };
 
-                    var tb = new TextBlock
-                    {
-                        Text = s.Text,
-                        Foreground = Brushes.White,
-                        FontSize = 11,
-                        VerticalAlignment = VerticalAlignment.Center,
-                        HorizontalAlignment = HorizontalAlignment.Left,
-                        TextTrimming = TextTrimming.CharacterEllipsis,
-                        Padding = new Thickness(6, 0, 4, 0)
-                    };
-                    card.Child = tb;
+                var rightHandle = new Thumb
+                {
+                    Width               = 8,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    Cursor              = Cursors.SizeWE,
+                    Background          = Brushes.White,
+                    Opacity             = 0
+                };
+                rightHandle.DragDelta   += UnifiedRightHandle_DragDelta;
+                rightHandle.DragStarted += (_, _) => { VideoPlayer.Pause(); playheadTimer.Stop(); };
 
-                    var leftHandle = new Thumb
-                    {
-                        Width = 8,
-                        HorizontalAlignment = HorizontalAlignment.Left,
-                        Cursor = Cursors.SizeWE,
-                        Background = Brushes.White,
-                        Opacity = 0
-                    };
-                    leftHandle.DragDelta += UnifiedLeftHandle_DragDelta;
-                    leftHandle.DragStarted += (_, _) => { VideoPlayer.Pause(); playheadTimer.Stop(); };
+                container.Children.Add(card);
+                container.Children.Add(leftHandle);
+                container.Children.Add(rightHandle);
 
-                    var rightHandle = new Thumb
-                    {
-                        Width = 8,
-                        HorizontalAlignment = HorizontalAlignment.Right,
-                        Cursor = Cursors.SizeWE,
-                        Background = Brushes.White,
-                        Opacity = 0
-                    };
-                    rightHandle.DragDelta += UnifiedRightHandle_DragDelta;
-                    rightHandle.DragStarted += (_, _) => { VideoPlayer.Pause(); playheadTimer.Stop(); };
+                container.MouseDown         += TrackItem_MouseDown;
+                container.MouseMove         += TrackItem_MouseMove;
+                container.MouseLeftButtonUp += TrackItem_MouseUp;
 
-                    container.Children.Add(card);
-                    container.Children.Add(leftHandle);
-                    container.Children.Add(rightHandle);
-
-                    container.MouseDown += TrackItem_MouseDown;
-                    container.MouseMove += TrackItem_MouseMove;
-                    container.MouseLeftButtonUp += TrackItem_MouseUp;
-
-                    Canvas.SetLeft(container, leftX);
-                    Canvas.SetTop(container, 4);
-                    canvas.Children.Add(container);
-                }
+                Canvas.SetLeft(container, leftX);
+                Canvas.SetTop(container,  4);
+                canvas.Children.Add(container);
             }
         }
         // 點擊字卡時，把樣式填回 UI
         private void LoadStyleToUI(SubtitleStyle s)
         {
-            TxtSubtitle.Text = s.Text;
-            TxtFontSize.Text = s.FontSize.ToString();
-            SliderStroke.Value = s.StrokeWidth;
-            ChkItalic.IsChecked = s.IsItalic;
-            ChkUnderline.IsChecked = s.IsUnderline;
-            TxtSubStartTime.Text = s.StartSeconds.ToString("F1");
-            TxtSubDuration.Text = s.DurationSeconds.ToString("F1");
-
+            TxtSubtitle.Text        = s.Text;
+            TxtFontSize.Text        = s.FontSize.ToString();
+            SliderStroke.Value      = s.StrokeWidth;
+            ChkItalic.IsChecked     = s.IsItalic;
+            ChkUnderline.IsChecked  = s.IsUnderline;
+            TxtSubStartTime.Text    = s.StartSeconds.ToString("F1");
+            TxtSubDuration.Text     = s.DurationSeconds.ToString("F1");
+            
             // 更新字串欄位並同步色塊背景
             void ApplyColor(ref string field, Border swatch, string hex)
             {
@@ -1336,14 +1320,14 @@ namespace framework
                 var c = TryParseColorFromHex(hex);
                 if (c.HasValue) swatch.Background = new SolidColorBrush(c.Value);
             }
-            ApplyColor(ref _fontColorHex, FontColorSwatch, s.FontColor);
+            ApplyColor(ref _fontColorHex,   FontColorSwatch,   s.FontColor);
             ApplyColor(ref _shadowColorHex, ShadowColorSwatch, s.ShadowColor);
             ApplyColor(ref _borderColorHex, BorderColorSwatch, s.StrokeColor);
-            ApplyColor(ref _bgColorHex, BgColorSwatch, s.BackgroundColor);
+            ApplyColor(ref _bgColorHex,     BgColorSwatch,     s.BackgroundColor);
 
             SelectComboByContent(ComboFontFamily, s.FontFamily);
             SelectComboByContent(ComboFontWeight, s.FontWeight);
-            SelectComboByContent(ComboPosition, s.Position);
+            SelectComboByContent(ComboPosition,   s.Position);
 
             RefreshMiniPreview();
         }
@@ -1360,9 +1344,9 @@ namespace framework
             double totalWidth = durationInSeconds * PIXELS_PER_SECOND;
 
             // 1. 初始化畫布與寬度
-            VideoTrackCanvas.Width = totalWidth + 100;
+             VideoTrackCanvas.Width     = totalWidth + 100;
             foreach (var c in SubtitleTrackCanvases) c.Width = totalWidth + 100;
-            TimeRulerCanvas.Width = totalWidth + 100;
+            TimeRulerCanvas.Width      = totalWidth + 100;
             TimelineContentStack.Width = totalWidth + 100;
             VideoTrackCanvas.Children.Clear();
             videoSegments.Clear(); // 清空舊的資料清單
@@ -1497,15 +1481,20 @@ namespace framework
                             r.Stroke = new SolidColorBrush(Color.FromRgb(0, 60, 110));
                             r.StrokeThickness = 1;
                         }
-
                         if (inner is Thumb t) t.Opacity = 0;
                     }
                 }
             }
 
-            foreach (var subtitleCanvas in SubtitleTrackCanvases)
+            var trackBorderColors = new[]
             {
-                foreach (var child in subtitleCanvas.Children)
+                Color.FromRgb(40, 25, 70),
+                Color.FromRgb(20, 50, 80),
+                Color.FromRgb(25, 60, 40),
+            };
+            for (int ti = 0; ti < SUBTITLE_TRACK_COUNT; ti++)
+            {
+                foreach (var child in SubtitleTrackCanvases[ti].Children)
                 {
                     if (child is Grid grid)
                     {
@@ -1513,15 +1502,7 @@ namespace framework
                         {
                             if (inner is Border b)
                             {
-                                var style = b.Tag as SubtitleStyle;
-                                int ti = style?.TrackIndex ?? 0;
-                                var borderColors = new[]
-                                {
-                                    Color.FromRgb(40, 25, 70),
-                                    Color.FromRgb(20, 50, 80),
-                                    Color.FromRgb(25, 60, 40),
-                                };
-                                b.BorderBrush = new SolidColorBrush(borderColors[ti]);
+                                b.BorderBrush     = new SolidColorBrush(trackBorderColors[ti]);
                                 b.BorderThickness = new Thickness(1);
                             }
                             if (inner is Thumb t) t.Opacity = 0;
@@ -1537,17 +1518,13 @@ namespace framework
 
             for (double s = 0; s <= totalSeconds + 1; s += 1)
             {
-                double x = s * pps;
-                bool isMajor = s % 5 == 0;
+                double x       = s * pps;
+                bool   isMajor = s % 5 == 0;
 
                 TimeRulerCanvas.Children.Add(new System.Windows.Shapes.Line
                 {
-                    X1 = x,
-                    X2 = x,
-                    Y1 = isMajor ? 5 : 15,
-                    Y2 = 25,
-                    Stroke = Brushes.Gray,
-                    StrokeThickness = 1
+                    X1 = x, X2 = x, Y1 = isMajor ? 5 : 15, Y2 = 25,
+                    Stroke = Brushes.Gray, StrokeThickness = 1
                 });
 
                 if (isMajor)
@@ -1565,10 +1542,9 @@ namespace framework
             {
                 if (selectedSubtitleCard.Tag is SubtitleStyle s)
                 {
-                    var track = subtitleTracks[s.TrackIndex];
-                    int idx = track.IndexOf(s);
-                    var cmd = new DeleteSubtitleCommand(track, s, idx, () => {
-                        selectedSubtitleCard = null;
+                    int idx = subtitleList.IndexOf(s);
+                    var cmd = new DeleteSubtitleCommand(subtitleList, s, idx, () => {
+                        selectedSubtitleCard = null; // 清空選取狀態
                         RedrawSubtitleCards();
                         RebuildOverlayCards();
                     });
@@ -1601,7 +1577,7 @@ namespace framework
                 commandHistory.Clear();
                 VideoTrackCanvas.Children.Clear();
                 foreach (var c in SubtitleTrackCanvases) c.Children.Clear();
-                foreach (var t in subtitleTracks) t.Clear();
+                subtitleList.Clear();
                 videoSegments.Clear();
                 currentVideoPath = "";
                 currentVideoDuration = 0;
@@ -1629,21 +1605,21 @@ namespace framework
             if (VideoPlayer.Source == null || selectedSegment == null) return;
 
             if (!double.TryParse(TxtStartTime.Text, out double st) ||
-                !double.TryParse(TxtEndTime.Text, out double et))
+                !double.TryParse(TxtEndTime.Text,   out double et))
             { MessageBox.Show("請輸入有效的時間！", "錯誤"); return; }
 
             if (st < 0 || et <= st || et > currentVideoDuration)
             { MessageBox.Show($"時間不合法（總長：{currentVideoDuration:F1}秒）", "錯誤"); return; }
 
             StoreTrimSettings(st, et);
-            VideoPlayer.Position = TimeSpan.FromSeconds(st);
+            VideoPlayer.Position    = TimeSpan.FromSeconds(st);
             MessageBox.Show($"已設定剪輯：{st:F1}秒 ~ {et:F1}秒", "系統訊息");
         }
-
+        
         private void StoreTrimSettings(double startSeconds, double endSeconds)
         {
             if (selectedSegment == null) return;
-
+            
             selectedSegment.TimelineStart = startSeconds;
             selectedSegment.Duration = endSeconds - startSeconds;
             selectedSegment.InternalOffset = startSeconds;
@@ -1652,7 +1628,7 @@ namespace framework
             {
                 Canvas.SetLeft(selectedSegment.UIElement, startSeconds * PIXELS_PER_SECOND);
                 selectedSegment.UIElement.Width = (endSeconds - startSeconds) * PIXELS_PER_SECOND;
-            }
+            }    
         }
 
         //  匯出輔助
@@ -1660,30 +1636,30 @@ namespace framework
         {
             return new ExportSettings
             {
-                Format = format,
-                Bitrate = bitrate,
-                VideoCodec = ew.SelectedVideoCodec,
-                AudioCodec = ew.SelectedAudioCodec,
-                AudioBitrate = "128",
-                AudioChannels = 2,
-                OutputWidth = ew.OutputWidth,
-                OutputHeight = ew.OutputHeight,
-                EnableFastStart = ew.EnableFastStart,
+                Format           = format,
+                Bitrate          = bitrate,
+                VideoCodec       = ew.SelectedVideoCodec,
+                AudioCodec       = ew.SelectedAudioCodec,
+                AudioBitrate     = "128",
+                AudioChannels    = 2,
+                OutputWidth      = ew.OutputWidth,
+                OutputHeight     = ew.OutputHeight,
+                EnableFastStart  = ew.EnableFastStart,
                 TrimStartSeconds = trimStartSeconds,
-                TrimEndSeconds = trimEndSeconds,
-                DurationSeconds = currentVideoDuration,
-                SubtitleText = pendingSubtitleText,
+                TrimEndSeconds   = trimEndSeconds,
+                DurationSeconds  = currentVideoDuration,
+                SubtitleText     = pendingSubtitleText,
             };
         }
 
         private bool AskSaveExportPath(ExportSettings settings)
         {
-            var dlg = new SaveFileDialog
+             var dlg = new SaveFileDialog
             {
-                Filter = "MP4 檔案 (*.mp4)|*.mp4|MKV 檔案 (*.mkv)|*.mkv|MOV 檔案 (*.mov)|*.mov",
-                FileName = Path.GetFileNameWithoutExtension(currentVideoPath) + "." + settings.Format.ToString().ToLower(),
-                DefaultExt = settings.Format.ToString().ToLower(),
-                AddExtension = true,
+                Filter           = "MP4 檔案 (*.mp4)|*.mp4|MKV 檔案 (*.mkv)|*.mkv|MOV 檔案 (*.mov)|*.mov",
+                FileName         = Path.GetFileNameWithoutExtension(currentVideoPath) + "." + settings.Format.ToString().ToLower(),
+                DefaultExt       = settings.Format.ToString().ToLower(),
+                AddExtension     = true,
                 InitialDirectory = Path.GetDirectoryName(currentVideoPath)
             };
             if (dlg.ShowDialog() != true) return false;
@@ -1700,15 +1676,16 @@ namespace framework
             if (string.IsNullOrEmpty(ffmpegPath))
             { MessageBox.Show("找不到 FFmpeg 執行檔。請安裝或將 ffmpeg.exe 放在應用程式目錄。", "錯誤"); return false; }
 
-            var args = FfmpegArgumentBuilder.Build(currentVideoPath, settings, currentVideoHasAudio);
+            var args = FfmpegArgumentBuilder.Build(currentVideoPath, settings, currentVideoHasAudio);  // 無聲影片修正：告知 Builder 是否有音訊
+
             try
             {
                 using var proc = new Process();
-                proc.StartInfo.FileName = ffmpegPath;
+                proc.StartInfo.FileName               = ffmpegPath;
                 proc.StartInfo.RedirectStandardOutput = true;
-                proc.StartInfo.RedirectStandardError = true;
-                proc.StartInfo.UseShellExecute = false;
-                proc.StartInfo.CreateNoWindow = true;
+                proc.StartInfo.RedirectStandardError  = true;
+                proc.StartInfo.UseShellExecute        = false;
+                proc.StartInfo.CreateNoWindow         = true;
 
                 foreach (var a in args) proc.StartInfo.ArgumentList.Add(a);
 
@@ -1721,12 +1698,11 @@ namespace framework
                 return true;
             }
             catch (Win32Exception) { MessageBox.Show("找不到 FFmpeg 執行檔。", "錯誤"); return false; }
-            catch (Exception ex) { MessageBox.Show($"匯出失敗：{ex.Message}", "錯誤"); return false; }
+            catch (Exception ex)   { MessageBox.Show($"匯出失敗：{ex.Message}", "錯誤"); return false; }
         }
         //  統一的時間軸拖曳邏輯 (滑鼠點擊、移動、放開)
         private void TrackItem_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            ClearSelection();
             if (sender is not Grid container || container.Tag is not ITimelineTrackItem itemData) return;
 
             // 剪刀工具處理 (限定影像軌)
@@ -1738,22 +1714,26 @@ namespace framework
                 return;
             }
 
-            isDraggingTrackItem = true;
-            draggedTrackItemUI = container;
+            ClearSelection();
+
+            isDraggingTrackItem  = true;
+            draggedTrackItemUI   = container;
             draggedTrackItemData = itemData;
             trackDragStartMouseX = e.GetPosition(this).X;
-            trackDragStartLeft = Canvas.GetLeft(container);
+            trackDragStartLeft   = Canvas.GetLeft(container);
+
             if (itemData is VideoSegmentData)
             {
-                preDragVideoOrder = new List<VideoSegmentData>(videoSegments);
+                preDragVideoOrder  = new List<VideoSegmentData>(videoSegments);
                 preDragVideoStarts = videoSegments.ToDictionary(s => s.Id, s => s.TimelineStartSeconds);
             }
-            else if (itemData is SubtitleStyle subtitle0)
+            else if (itemData is SubtitleStyle sub0)
             {
-                draggedSubtitleSourceTrack = subtitle0.TrackIndex;
-                preDragSubtitleOrder = subtitleTracks[subtitle0.TrackIndex].ToList();
-                preDragSubtitleStarts = subtitleTracks[subtitle0.TrackIndex].ToDictionary(s => s, s => s.TimelineStartSeconds);
+                draggedSubtitleSourceTrack = sub0.TrackIndex;
+                preDragSubtitleOrder  = new List<SubtitleStyle>(subtitleList);
+                preDragSubtitleStarts = subtitleList.ToDictionary(s => s, s => s.TimelineStartSeconds);
             }
+
             if (itemData is VideoSegmentData video)
             {
                 selectedSegment = video;
@@ -1762,12 +1742,12 @@ namespace framework
                 foreach (var t in container.Children.OfType<Thumb>()) t.Opacity = 0.5;
 
                 TxtStartTime.Text = video.TimelineStartSeconds.ToString("F1");
-                TxtEndTime.Text = (video.TimelineStartSeconds + video.TimelineDurationSeconds).ToString("F1");
+                TxtEndTime.Text   = (video.TimelineStartSeconds + video.TimelineDurationSeconds).ToString("F1");
             }
             else if (itemData is SubtitleStyle subtitle)
             {
                 var card = container.Children.OfType<Border>().FirstOrDefault();
-                if (card != null) { card.BorderBrush = Brushes.White; selectedSubtitleCard = card; }
+                if (card != null) { card.BorderBrush = Brushes.White; card.BorderThickness = new Thickness(2); selectedSubtitleCard = card; }
                 foreach (var t in container.Children.OfType<Thumb>()) t.Opacity = 0.6;
                 LoadStyleToUI(subtitle);
             }
@@ -1814,9 +1794,10 @@ namespace framework
             isDraggingTrackItem = false;
             draggedTrackItemUI.ReleaseMouseCapture();
 
-            double finalLeft = Canvas.GetLeft(draggedTrackItemUI);
+            double finalLeft   = Canvas.GetLeft(draggedTrackItemUI);
+            bool actuallyMoved = Math.Abs(finalLeft - trackDragStartLeft) > 1.0;
 
-            if (Math.Abs(finalLeft - trackDragStartLeft) > 1.0 || draggedSubtitleSourceTrack >= 0)
+            if (actuallyMoved)
             {
                 double newStartSeconds = finalLeft / PIXELS_PER_SECOND;
 
@@ -1826,7 +1807,7 @@ namespace framework
                     VideoPlayer.Position = TimeSpan.FromSeconds(newStartSeconds);
                     if (preDragVideoOrder != null && preDragVideoStarts != null)
                     {
-                        var postOrder = new List<VideoSegmentData>(videoSegments);
+                        var postOrder  = new List<VideoSegmentData>(videoSegments);
                         var postStarts = videoSegments.ToDictionary(s => s.Id, s => s.TimelineStartSeconds);
                         var cmd = new MoveVideoTrackCommand(videoSegments, preDragVideoOrder, preDragVideoStarts, postOrder, postStarts, RefreshVideoTrackUI);
                         commandHistory.ExecuteCommand(cmd);
@@ -1834,45 +1815,46 @@ namespace framework
                 }
                 else if (draggedTrackItemData is SubtitleStyle subtitle)
                 {
-                    // ── 跨軌拖曳：根據滑鼠放開時的 Y 位置決定目標軌道 ──
+                    // 跨軌偵測：依滑鼠 Y 座標判斷目標軌道
                     int targetTrack = draggedSubtitleSourceTrack;
-                    Point mousePos = e.GetPosition(this);
-
-                    // 計算各軌道的螢幕 Y 範圍
+                    Point mousePos  = e.GetPosition(this);
                     for (int ti = 0; ti < SUBTITLE_TRACK_COUNT; ti++)
                     {
-                        var canvas = SubtitleTrackCanvases[ti];
-                        var topLeft = canvas.PointToScreen(new Point(0, 0));
-                        var winTopLeft = this.PointFromScreen(topLeft);
-                        double canvasTop = winTopLeft.Y;
-                        double canvasBottom = canvasTop + canvas.ActualHeight;
-                        if (mousePos.Y >= canvasTop - 8 && mousePos.Y <= canvasBottom + 8)
+                        var cv        = SubtitleTrackCanvases[ti];
+                        var winOrigin = this.PointFromScreen(cv.PointToScreen(new Point(0, 0)));
+                        if (mousePos.Y >= winOrigin.Y - 8 && mousePos.Y <= winOrigin.Y + cv.ActualHeight + 8)
                         {
                             targetTrack = ti;
                             break;
                         }
                     }
 
-                    // 若跨軌：把字卡從舊軌移到新軌
-                    if (targetTrack != draggedSubtitleSourceTrack && draggedSubtitleSourceTrack >= 0)
-                    {
-                        subtitleTracks[draggedSubtitleSourceTrack].Remove(subtitle);
+                    // 跨軌：只更新 TrackIndex，資料仍在同一個 subtitleList
+                    if (targetTrack != draggedSubtitleSourceTrack)
                         subtitle.TrackIndex = targetTrack;
-                        subtitleTracks[targetTrack].Add(subtitle);
+
+                    ResolveSubtitleOverlaps();
+
+                    // 原版的 Undo/Redo 指令，完整保留
+                    if (preDragSubtitleOrder != null && preDragSubtitleStarts != null)
+                    {
+                        var postOrder  = new List<SubtitleStyle>(subtitleList);
+                        var postStarts = subtitleList.ToDictionary(s => s, s => s.TimelineStartSeconds);
+                        var cmd = new MoveSubtitleTrackCommand(subtitleList, preDragSubtitleOrder, preDragSubtitleStarts, postOrder, postStarts, RefreshSubtitleTrackUI);
+                        commandHistory.ExecuteCommand(cmd);
                     }
 
-                    ResolveSubtitleOverlapsForTrack(targetTrack);
+                    // 跨軌後重繪，確保字卡出現在正確的 Canvas 軌道上
+                    RedrawSubtitleCards();
 
                     var card = draggedTrackItemUI.Children.OfType<Border>().FirstOrDefault();
                     if (card != null)
                         card.ToolTip = $"[軌{targetTrack + 1}] {subtitle.Text}\n{subtitle.TimelineStartSeconds:F1}s → {subtitle.TimelineStartSeconds + subtitle.TimelineDurationSeconds:F1}s";
-
-                    RedrawSubtitleCards();
                 }
             }
 
-            draggedTrackItemUI = null;
-            draggedTrackItemData = null;
+            draggedTrackItemUI         = null;
+            draggedTrackItemData       = null;
             draggedSubtitleSourceTrack = -1;
             e.Handled = true;
         }
@@ -1914,48 +1896,46 @@ namespace framework
                 TxtEndTime.Text = (selectedSegment.TimelineStartSeconds + selectedSegment.TimelineDurationSeconds).ToString("F1");
             }
         }
-        // 解決指定軌道內的重疊（拖曳後呼叫）
-        private void ResolveSubtitleOverlapsForTrack(int trackIdx)
+        private void ResolveSubtitleOverlaps()
         {
-            var track = subtitleTracks[trackIdx];
-            track.Sort((a, b) => a.StartSeconds.CompareTo(b.StartSeconds));
-
-            double nextValidStartSec = 0;
-            foreach (var sub in track)
+            // 對每條軌道分別排序並解決重疊，資料仍在同一個 subtitleList
+            for (int ti = 0; ti < SUBTITLE_TRACK_COUNT; ti++)
             {
-                if (sub.StartSeconds < nextValidStartSec)
-                    sub.StartSeconds = nextValidStartSec;
-                nextValidStartSec = sub.StartSeconds + sub.DurationSeconds;
+                var trackItems = subtitleList.Where(s => s.TrackIndex == ti)
+                                             .OrderBy(s => s.StartSeconds + s.DurationSeconds / 2.0)
+                                             .ToList();
+                double nextValid = 0;
+                foreach (var sub in trackItems)
+                {
+                    if (sub.StartSeconds < nextValid)
+                        sub.StartSeconds = nextValid;
+                    nextValid = sub.StartSeconds + sub.DurationSeconds;
+                }
             }
 
-            double maxEnd = nextValidStartSec;
+            double maxEnd = subtitleList.Count > 0
+                ? subtitleList.Max(s => s.StartSeconds + s.DurationSeconds) : 0;
             if (maxEnd > currentVideoDuration)
             {
                 double newWidth = maxEnd * PIXELS_PER_SECOND + 200;
                 if (newWidth > VideoTrackCanvas.Width)
                 {
-                    VideoTrackCanvas.Width = newWidth;
+                    VideoTrackCanvas.Width     = newWidth;
                     foreach (var c in SubtitleTrackCanvases) c.Width = newWidth;
-                    TimeRulerCanvas.Width = newWidth;
+                    TimeRulerCanvas.Width      = newWidth;
                     TimelineContentStack.Width = newWidth;
                     DrawTimeRuler(maxEnd);
                 }
             }
-        }
 
-        private void ResolveSubtitleOverlaps()
-        {
-            for (int i = 0; i < SUBTITLE_TRACK_COUNT; i++)
-                ResolveSubtitleOverlapsForTrack(i);
-
+            // 更新所有字卡 UI 位置
             foreach (var canvas in SubtitleTrackCanvases)
                 foreach (var child in canvas.Children)
-                    if (child is Grid container && container.Tag is SubtitleStyle style)
-                        Canvas.SetLeft(container, style.StartSeconds * PIXELS_PER_SECOND);
+                    if (child is Grid g && g.Tag is SubtitleStyle st)
+                        Canvas.SetLeft(g, st.StartSeconds * PIXELS_PER_SECOND);
 
-            if (selectedSubtitleCard != null && selectedSubtitleCard.Tag is SubtitleStyle selectedStyle)
-                if (TxtSubStartTime != null)
-                    TxtSubStartTime.Text = selectedStyle.StartSeconds.ToString("F1");
+            if (selectedSubtitleCard?.Tag is SubtitleStyle sel && TxtSubStartTime != null)
+                TxtSubStartTime.Text = sel.StartSeconds.ToString("F1");
         }
         private void UnifiedLeftHandle_DragDelta(object sender, DragDeltaEventArgs e)
         {
@@ -2063,17 +2043,13 @@ namespace framework
         }
         public void RefreshSubtitleTrackUI()
         {
-            for (int ti = 0; ti < SUBTITLE_TRACK_COUNT; ti++)
-            {
-                var canvas = SubtitleTrackCanvases[ti];
+            foreach (var canvas in SubtitleTrackCanvases)
                 foreach (var child in canvas.Children)
                     if (child is Grid container && container.Tag is SubtitleStyle style)
                         Canvas.SetLeft(container, style.StartSeconds * PIXELS_PER_SECOND);
-            }
 
-            if (selectedSubtitleCard != null && selectedSubtitleCard.Tag is SubtitleStyle selectedStyle)
-                if (TxtSubStartTime != null)
-                    TxtSubStartTime.Text = selectedStyle.StartSeconds.ToString("F1");
+            if (selectedSubtitleCard?.Tag is SubtitleStyle sel && TxtSubStartTime != null)
+                TxtSubStartTime.Text = sel.StartSeconds.ToString("F1");
         }
     }
     public interface IEditorCommand
