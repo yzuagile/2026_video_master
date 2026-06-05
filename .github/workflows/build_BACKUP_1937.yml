@@ -26,11 +26,15 @@ jobs:
 
     - name: Run tests
       run: |
+<<<<<<< HEAD
+        dotnet test framework/VideoMaster.Tests/VideoMaster.Tests.csproj -c Release --no-restore --logger "trx;LogFileName=TestResults/results.trx"
+=======
         dotnet test framework/VideoMaster.Tests/VideoMaster.Tests.csproj -c Release --no-restore \
           --logger "trx;LogFileName=TestResults/results.trx" \
           --results-directory framework/VideoMaster.Tests/TestResults \
           --collect:"XPlat Code Coverage" \
           -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+>>>>>>> origin/test-coverage
 
     - name: Publish test report
       uses: dorny/test-reporter@v3
@@ -40,6 +44,10 @@ jobs:
         path: "framework/**/TestResults/*.trx"
         reporter: dotnet-trx
         use-actions-summary: 'true'
+<<<<<<< HEAD
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+=======
       env:  
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -58,6 +66,7 @@ jobs:
         fail_ci_if_error: true
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+>>>>>>> origin/test-coverage
 
     - name: Build app
       run: dotnet build framework/framework/framework.csproj -c Release --no-restore
