@@ -54,7 +54,7 @@
             <!-- 右側設定面板 -->
             <TabControl x:Name="MainTabControl" Grid.Column="1" Margin="10">
 
-<!-- ===== 字卡設定頁 ===== -->
+                <!-- ===== 字卡設定頁 ===== -->
                 <TabItem Header="📝 字卡設定 (F1)" FontSize="14">
                     <ScrollViewer VerticalScrollBarVisibility="Hidden">
                         <StackPanel Margin="12">
@@ -115,8 +115,8 @@
 
                             <UniformGrid Columns="2" Margin="0,0,0,10" Rows="2">
 
-                            <!-- 字體顏色 -->
-                            <StackPanel Margin="0,0,6,6">
+                                <!-- 字體顏色 -->
+                                <StackPanel Margin="0,0,6,6">
                                     <TextBlock Text="字體顏色" FontSize="11" Foreground="Gray" Margin="0,0,0,3"/>
                                     <!-- 三層疊：棋盤格底層 / 顏色 Border（Window NameScope）/ 透明按鈕攔截點擊 -->
                                     <Grid Height="36" Cursor="Hand">
@@ -126,8 +126,19 @@
                                                     <DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
                                                         <DrawingBrush.Drawing>
                                                             <DrawingGroup>
-                                                                <GeometryDrawing Brush="#CCCCCC"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,8,8"/></GeometryDrawing.Geometry></GeometryDrawing>
-                                                                <GeometryDrawing Brush="#FFFFFF"><GeometryDrawing.Geometry><GeometryGroup><RectangleGeometry Rect="0,0,4,4"/><RectangleGeometry Rect="4,4,4,4"/></GeometryGroup></GeometryDrawing.Geometry></GeometryDrawing>
+                                                                <GeometryDrawing Brush="#CCCCCC">
+                                                                    <GeometryDrawing.Geometry>
+                                                                        <RectangleGeometry Rect="0,0,8,8"/>
+                                                                    </GeometryDrawing.Geometry>
+                                                                </GeometryDrawing>
+                                                                <GeometryDrawing Brush="#FFFFFF">
+                                                                    <GeometryDrawing.Geometry>
+                                                                        <GeometryGroup>
+                                                                            <RectangleGeometry Rect="0,0,4,4"/>
+                                                                            <RectangleGeometry Rect="4,4,4,4"/>
+                                                                        </GeometryGroup>
+                                                                    </GeometryDrawing.Geometry>
+                                                                </GeometryDrawing>
                                                             </DrawingGroup>
                                                         </DrawingBrush.Drawing>
                                                     </DrawingBrush>
@@ -149,8 +160,19 @@
                                                     <DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
                                                         <DrawingBrush.Drawing>
                                                             <DrawingGroup>
-                                                                <GeometryDrawing Brush="#CCCCCC"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,8,8"/></GeometryDrawing.Geometry></GeometryDrawing>
-                                                                <GeometryDrawing Brush="#FFFFFF"><GeometryDrawing.Geometry><GeometryGroup><RectangleGeometry Rect="0,0,4,4"/><RectangleGeometry Rect="4,4,4,4"/></GeometryGroup></GeometryDrawing.Geometry></GeometryDrawing>
+                                                                <GeometryDrawing Brush="#CCCCCC">
+                                                                    <GeometryDrawing.Geometry>
+                                                                        <RectangleGeometry Rect="0,0,8,8"/>
+                                                                    </GeometryDrawing.Geometry>
+                                                                </GeometryDrawing>
+                                                                <GeometryDrawing Brush="#FFFFFF">
+                                                                    <GeometryDrawing.Geometry>
+                                                                        <GeometryGroup>
+                                                                            <RectangleGeometry Rect="0,0,4,4"/>
+                                                                            <RectangleGeometry Rect="4,4,4,4"/>
+                                                                        </GeometryGroup>
+                                                                    </GeometryDrawing.Geometry>
+                                                                </GeometryDrawing>
                                                             </DrawingGroup>
                                                         </DrawingBrush.Drawing>
                                                     </DrawingBrush>
@@ -172,8 +194,19 @@
                                                     <DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
                                                         <DrawingBrush.Drawing>
                                                             <DrawingGroup>
-                                                                <GeometryDrawing Brush="#CCCCCC"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,8,8"/></GeometryDrawing.Geometry></GeometryDrawing>
-                                                                <GeometryDrawing Brush="#FFFFFF"><GeometryDrawing.Geometry><GeometryGroup><RectangleGeometry Rect="0,0,4,4"/><RectangleGeometry Rect="4,4,4,4"/></GeometryGroup></GeometryDrawing.Geometry></GeometryDrawing>
+                                                                <GeometryDrawing Brush="#CCCCCC">
+                                                                    <GeometryDrawing.Geometry>
+                                                                        <RectangleGeometry Rect="0,0,8,8"/>
+                                                                    </GeometryDrawing.Geometry>
+                                                                </GeometryDrawing>
+                                                                <GeometryDrawing Brush="#FFFFFF">
+                                                                    <GeometryDrawing.Geometry>
+                                                                        <GeometryGroup>
+                                                                            <RectangleGeometry Rect="0,0,4,4"/>
+                                                                            <RectangleGeometry Rect="4,4,4,4"/>
+                                                                        </GeometryGroup>
+                                                                    </GeometryDrawing.Geometry>
+                                                                </GeometryDrawing>
                                                             </DrawingGroup>
                                                         </DrawingBrush.Drawing>
                                                     </DrawingBrush>
@@ -195,8 +228,19 @@
                                                     <DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
                                                         <DrawingBrush.Drawing>
                                                             <DrawingGroup>
-                                                                <GeometryDrawing Brush="#CCCCCC"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,8,8"/></GeometryDrawing.Geometry></GeometryDrawing>
-                                                                <GeometryDrawing Brush="#FFFFFF"><GeometryDrawing.Geometry><GeometryGroup><RectangleGeometry Rect="0,0,4,4"/><RectangleGeometry Rect="4,4,4,4"/></GeometryGroup></GeometryDrawing.Geometry></GeometryDrawing>
+                                                                <GeometryDrawing Brush="#CCCCCC">
+                                                                    <GeometryDrawing.Geometry>
+                                                                        <RectangleGeometry Rect="0,0,8,8"/>
+                                                                    </GeometryDrawing.Geometry>
+                                                                </GeometryDrawing>
+                                                                <GeometryDrawing Brush="#FFFFFF">
+                                                                    <GeometryDrawing.Geometry>
+                                                                        <GeometryGroup>
+                                                                            <RectangleGeometry Rect="0,0,4,4"/>
+                                                                            <RectangleGeometry Rect="4,4,4,4"/>
+                                                                        </GeometryGroup>
+                                                                    </GeometryDrawing.Geometry>
+                                                                </GeometryDrawing>
                                                             </DrawingGroup>
                                                         </DrawingBrush.Drawing>
                                                     </DrawingBrush>
@@ -415,11 +459,47 @@
                                         <ColumnDefinition Width="4*"/>
                                         <ColumnDefinition Width="207*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="💬 字卡軌" Foreground="#AAAAFF"
+                                    <TextBlock Foreground="#AAAAFF"
                                                VerticalAlignment="Center" HorizontalAlignment="Center"
-                                               FontSize="11"/>
-                                    <Canvas Grid.Column="1" Name="SubtitleTrackCanvas"
+                                               FontSize="10">
+                                        <TextBlock.Text>💬 字卡軌 1</TextBlock.Text>
+                                    </TextBlock>
+                                    <Canvas Grid.Column="1" Name="SubtitleTrackCanvas0"
                                             Background="#1A1A2E" HorizontalAlignment="Left"
+                                            Grid.ColumnSpan="3"/>
+                                </Grid>
+
+                                <Grid Height="40" Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="4*"/>
+                                        <ColumnDefinition Width="207*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Foreground="#AAAADD"
+                                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                                               FontSize="10">
+                                        <TextBlock.Text>💬 字卡軌 2</TextBlock.Text>
+                                    </TextBlock>
+                                    <Canvas Grid.Column="1" Name="SubtitleTrackCanvas1"
+                                            Background="#1A2035" HorizontalAlignment="Left"
+                                            Grid.ColumnSpan="3"/>
+                                </Grid>
+
+                                <Grid Height="40" Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="4*"/>
+                                        <ColumnDefinition Width="207*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Foreground="#AADDAA"
+                                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                                               FontSize="10">
+                                        <TextBlock.Text>💬 字卡軌 3</TextBlock.Text>
+                                    </TextBlock>
+                                    <Canvas Grid.Column="1" Name="SubtitleTrackCanvas2"
+                                            Background="#1A2A1E" HorizontalAlignment="Left"
                                             Grid.ColumnSpan="3"/>
                                 </Grid>
 
@@ -442,7 +522,7 @@
                             <Canvas Name="PlayheadCanvas" IsHitTestVisible="False" 
                                     Margin="80,0,0,0" Panel.ZIndex="10">
                                 <Line x:Name="PlayheadLine" 
-                                      X1="0" Y1="0" X2="0" Y2="190"   
+                                      X1="0" Y1="0" X2="0" Y2="310"   
                                       Stroke="Red" StrokeThickness="2" 
                                       Visibility="Collapsed"/>
                             </Canvas>
