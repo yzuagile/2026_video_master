@@ -1963,15 +1963,28 @@ namespace framework
             if (container.Tag is not ITimelineTrackItem itemData) return;
 
             double currentLeft = Canvas.GetLeft(container);
-            double newLeft = currentLeft + e.HorizontalChange;
-            double newWidth = container.Width - e.HorizontalChange;
-            if (itemData is VideoSegmentData video)
+            double deltaX = e.HorizontalChange;
+
+            if (itemData is VideoSegmentData videoBounds)
+            {
+                double deltaT = deltaX / PIXELS_PER_SECOND;
+                if (videoBounds.InternalOffset + deltaT < 0)
+                {
+                    deltaT = -videoBounds.InternalOffset;
+                    deltaX = deltaT * PIXELS_PER_SECOND;
+                }
+            }
+
+            double newLeft = currentLeft + deltaX;
+            double newWidth = container.Width - deltaX;
+
+            if (itemData is VideoSegmentData videoDataCol)
             {
                 double minLeft = 0;
                 foreach (var other in videoSegments)
                 {
-                    if (other == video) continue;
-                    if (other.TimelineStartSeconds < video.TimelineStartSeconds)
+                    if (other == videoDataCol) continue;
+                    if (other.TimelineStartSeconds <= videoDataCol.TimelineStartSeconds)
                     {
                         double otherRight = (other.TimelineStartSeconds + other.TimelineDurationSeconds) * PIXELS_PER_SECOND;
                         if (otherRight > minLeft) minLeft = otherRight;
@@ -1985,8 +1998,7 @@ namespace framework
             }
 
             if (newWidth < 10 || newLeft < 0) return;
-
-            double deltaSeconds = (newLeft - currentLeft) / PIXELS_PER_SECOND;
+            double actualDeltaSeconds = (newLeft - currentLeft) / PIXELS_PER_SECOND;
 
             Canvas.SetLeft(container, newLeft);
             container.Width = newWidth;
@@ -1996,6 +2008,8 @@ namespace framework
 
             if (itemData is VideoSegmentData videoData)
             {
+                videoData.InternalOffset += actualDeltaSeconds; // 影片起點跟著左把手移動
+
                 TxtStartTime.Text = videoData.TimelineStartSeconds.ToString("F1");
                 TxtEndTime.Text = (videoData.TimelineStartSeconds + videoData.TimelineDurationSeconds).ToString("F1");
                 SyncVideoPlayerToTimeline(videoData.TimelineStartSeconds);
@@ -2012,15 +2026,29 @@ namespace framework
             if (sender is not Thumb thumb || thumb.Parent is not Grid container) return;
             if (container.Tag is not ITimelineTrackItem itemData) return;
 
-            double newWidth = container.Width + e.HorizontalChange;
+            double deltaX = e.HorizontalChange;
+
+            if (itemData is VideoSegmentData videoBounds)
+            {
+                double deltaT = deltaX / PIXELS_PER_SECOND;
+                if (videoBounds.InternalOffset + videoBounds.Duration + deltaT > currentVideoDuration)
+                {
+                    // 限制最多只能拉到原影片的結尾
+                    deltaT = currentVideoDuration - (videoBounds.InternalOffset + videoBounds.Duration);
+                    deltaX = deltaT * PIXELS_PER_SECOND;
+                }
+            }
+
+            double newWidth = container.Width + deltaX;
             double currentLeft = Canvas.GetLeft(container);
             double maxEnd = currentVideoDuration * PIXELS_PER_SECOND;
-            if (itemData is VideoSegmentData video)
+
+            if (itemData is VideoSegmentData videoCol)
             {
                 foreach (var other in videoSegments)
                 {
-                    if (other == video) continue;
-                    if (other.TimelineStartSeconds > video.TimelineStartSeconds)
+                    if (other == videoCol) continue;
+                    if (other.TimelineStartSeconds >= videoCol.TimelineStartSeconds)
                     {
                         double otherLeft = other.TimelineStartSeconds * PIXELS_PER_SECOND;
                         if (otherLeft < maxEnd) maxEnd = otherLeft;
