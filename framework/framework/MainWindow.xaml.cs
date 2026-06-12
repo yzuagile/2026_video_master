@@ -282,6 +282,9 @@ namespace framework
         private List<SubtitleStyle>? preDragSubtitleOrder;
         private Dictionary<SubtitleStyle, double>? preDragSubtitleStarts;
 
+        // ── 剪貼簿（只存一份，可放 VideoSegmentData 或 SubtitleStyle 的 deep copy）
+        private object? _clipboard = null;   // 實際型別：VideoSegmentData | SubtitleStyle
+
         // 影像片段資料結構
         public class VideoSegmentData : ITimelineTrackItem
         {
@@ -637,6 +640,24 @@ namespace framework
                 if (actualKey == Key.Y)
                 {
                     commandHistory.Redo();
+                    e.Handled = true;
+                    return;
+                }
+                if (actualKey == Key.X)
+                {
+                    ExecuteCut();
+                    e.Handled = true;
+                    return;
+                }
+                if (actualKey == Key.C)
+                {
+                    ExecuteCopy();
+                    e.Handled = true;
+                    return;
+                }
+                if (actualKey == Key.V)
+                {
+                    ExecutePaste();
                     e.Handled = true;
                     return;
                 }
@@ -1599,6 +1620,144 @@ namespace framework
         {
             commandHistory.Redo();
         }
+
+        // ══════════════════════════════════════
+        //  剪下 / 複製 / 貼上
+        // ══════════════════════════════════════
+
+        private void BtnCut_Click(object sender, RoutedEventArgs e)   => ExecuteCut();
+        private void BtnCopy_Click(object sender, RoutedEventArgs e)  => ExecuteCopy();
+        private void BtnPaste_Click(object sender, RoutedEventArgs e) => ExecutePaste();
+
+        /// <summary>複製選取元素的 deep copy 到剪貼簿。</summary>
+        private void ExecuteCopy()
+        {
+            if (selectedSubtitleCard?.Tag is SubtitleStyle sub)
+            {
+                _clipboard = CloneSubtitle(sub);
+            }
+            else if (selectedSegment != null)
+            {
+                _clipboard = CloneVideoSegment(selectedSegment);
+            }
+        }
+
+        /// <summary>複製到剪貼簿，然後刪除原始元素（透過 Command 支援 Undo）。</summary>
+        private void ExecuteCut()
+        {
+            if (selectedSubtitleCard?.Tag is SubtitleStyle sub)
+            {
+                _clipboard = CloneSubtitle(sub);   // 先存 clone
+
+                int idx = subtitleList.IndexOf(sub);
+                var cmd = new DeleteSubtitleCommand(subtitleList, sub, idx, () => {
+                    selectedSubtitleCard = null;
+                    RedrawSubtitleCards();
+                    RebuildOverlayCards();
+                });
+                commandHistory.ExecuteCommand(cmd);
+            }
+            else if (selectedSegment != null)
+            {
+                _clipboard = CloneVideoSegment(selectedSegment);   // 先存 clone
+
+                var cmd = new DeleteVideoSegmentCommand(videoSegments, VideoTrackCanvas, selectedSegment, ClearSelection);
+                commandHistory.ExecuteCommand(cmd);
+                selectedSegment = null;
+            }
+        }
+
+        /// <summary>將剪貼簿內容貼到游標右方（timelineCurrentSeconds），納入 Undo 歷史。</summary>
+        private void ExecutePaste()
+        {
+            if (_clipboard == null) return;
+
+            if (_clipboard is SubtitleStyle srcSub)
+            {
+                var newSub = CloneSubtitle(srcSub);
+                newSub.StartSeconds = timelineCurrentSeconds;   // 貼在游標右方
+
+                // 找第一條在該時間點沒有衝突的軌道（優先保留原軌道）
+                int targetTrack = -1;
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    // 第一輪：先試原軌道；第二輪：掃描所有軌道
+                    IEnumerable<int> candidates = pass == 0
+                        ? new[] { newSub.TrackIndex }
+                        : Enumerable.Range(0, SUBTITLE_TRACK_COUNT);
+
+                    foreach (int ti in candidates)
+                    {
+                        bool occupied = subtitleList.Any(s => s.TrackIndex == ti &&
+                            newSub.StartSeconds < s.StartSeconds + s.DurationSeconds &&
+                            newSub.StartSeconds + newSub.DurationSeconds > s.StartSeconds);
+                        if (!occupied) { targetTrack = ti; break; }
+                    }
+                    if (targetTrack != -1) break;
+                }
+
+                if (targetTrack == -1)
+                {
+                    MessageBox.Show("游標附近三條字卡軌都已滿，請移動游標後再貼上。", "提示");
+                    return;
+                }
+
+                newSub.TrackIndex = targetTrack;
+
+                var cmd = new AddSubtitleCommand(subtitleList, newSub, () => {
+                    RedrawSubtitleCards();
+                    RebuildOverlayCards();
+                });
+                commandHistory.ExecuteCommand(cmd);
+            }
+            else if (_clipboard is VideoSegmentData srcSeg)
+            {
+                var newSeg = CloneVideoSegment(srcSeg);
+                newSeg.TimelineStart = timelineCurrentSeconds;   // 貼在游標右方
+
+                newSeg.UIElement = CreateSegmentUI(newSeg);
+                Canvas.SetLeft(newSeg.UIElement, newSeg.TimelineStart * PIXELS_PER_SECOND);
+
+                var cmd = new PasteVideoSegmentCommand(
+                    videoSegments, VideoTrackCanvas, newSeg,
+                    () => { ResolveVideoOverlaps(); RefreshVideoTrackUI(); },
+                    ClearSelection);
+                commandHistory.ExecuteCommand(cmd);
+            }
+        }
+
+        // ── Deep-copy 輔助 ──────────────────────────────────────────────
+
+        private static SubtitleStyle CloneSubtitle(SubtitleStyle src) => new SubtitleStyle
+        {
+            Text            = src.Text,
+            FontFamily      = src.FontFamily,
+            FontSize        = src.FontSize,
+            FontWeight      = src.FontWeight,
+            IsItalic        = src.IsItalic,
+            IsUnderline     = src.IsUnderline,
+            FontColor       = src.FontColor,
+            ShadowColor     = src.ShadowColor,
+            StrokeWidth     = src.StrokeWidth,
+            StrokeColor     = src.StrokeColor,
+            BackgroundColor = src.BackgroundColor,
+            Position        = src.Position,
+            StartSeconds    = src.StartSeconds,
+            DurationSeconds = src.DurationSeconds,
+            TrackIndex      = src.TrackIndex,
+            UseCustomPosition = src.UseCustomPosition,
+            CustomX         = src.CustomX,
+            CustomY         = src.CustomY,
+        };
+
+        private static VideoSegmentData CloneVideoSegment(VideoSegmentData src) => new VideoSegmentData
+        {
+            // 新 Guid，避免 Id 碰撞
+            TimelineStart  = src.TimelineStart,
+            InternalOffset = src.InternalOffset,
+            Duration       = src.Duration,
+            // UIElement 由呼叫端負責建立
+        };
         //  影像剪輯面板
         private void BtnTrim_Click(object sender, RoutedEventArgs e)
         {
@@ -2373,5 +2532,46 @@ namespace framework
         }
         public void Execute() { _list[_index] = _newStyle; _refreshUI(); }
         public void Undo() { _list[_index] = _oldStyle; _refreshUI(); }
+    }
+
+    /// <summary>貼上影像片段指令（支援 Undo / Redo）。</summary>
+    public class PasteVideoSegmentCommand : IEditorCommand
+    {
+        private readonly List<MainWindow.VideoSegmentData> _videoSegments;
+        private readonly Canvas _videoTrackCanvas;
+        private readonly MainWindow.VideoSegmentData _newSegment;
+        private readonly Action _resolveAndRefresh;
+        private readonly Action _clearSelection;
+
+        public PasteVideoSegmentCommand(
+            List<MainWindow.VideoSegmentData> videoSegments,
+            Canvas videoTrackCanvas,
+            MainWindow.VideoSegmentData newSegment,
+            Action resolveAndRefresh,
+            Action clearSelection)
+        {
+            _videoSegments    = videoSegments;
+            _videoTrackCanvas = videoTrackCanvas;
+            _newSegment       = newSegment;
+            _resolveAndRefresh = resolveAndRefresh;
+            _clearSelection   = clearSelection;
+        }
+
+        public void Execute()
+        {
+            if (!_videoSegments.Contains(_newSegment))
+                _videoSegments.Add(_newSegment);
+            if (!_videoTrackCanvas.Children.Contains(_newSegment.UIElement))
+                _videoTrackCanvas.Children.Add(_newSegment.UIElement);
+            _resolveAndRefresh();
+        }
+
+        public void Undo()
+        {
+            _clearSelection();
+            _videoSegments.Remove(_newSegment);
+            _videoTrackCanvas.Children.Remove(_newSegment.UIElement);
+            _resolveAndRefresh();
+        }
     }
 }

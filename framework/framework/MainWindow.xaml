@@ -430,6 +430,22 @@
                             Margin="5,5,10,5" Padding="10,0" 
                             Background="Transparent" Foreground="White" BorderThickness="0" 
                             Cursor="Hand" ToolTip="重做上一個動作"/>
+                    <Separator Margin="0,5,0,5" Background="#555"/>
+                    <Button x:Name="BtnCut" Content="✂ 剪下 (Ctrl+X)"
+                            Click="BtnCut_Click"
+                            Margin="5,5,5,5" Padding="10,0"
+                            Background="Transparent" Foreground="White" BorderThickness="0"
+                            Cursor="Hand" ToolTip="剪下選取的元素"/>
+                    <Button x:Name="BtnCopy" Content="⎘ 複製 (Ctrl+C)"
+                            Click="BtnCopy_Click"
+                            Margin="5,5,5,5" Padding="10,0"
+                            Background="Transparent" Foreground="White" BorderThickness="0"
+                            Cursor="Hand" ToolTip="複製選取的元素"/>
+                    <Button x:Name="BtnPaste" Content="📋 貼上 (Ctrl+V)"
+                            Click="BtnPaste_Click"
+                            Margin="5,5,10,5" Padding="10,0"
+                            Background="Transparent" Foreground="White" BorderThickness="0"
+                            Cursor="Hand" ToolTip="貼上至游標右方"/>
                 </StackPanel>
 
                 <ScrollViewer Grid.Row="1" x:Name="TimelineScrollViewer" 
