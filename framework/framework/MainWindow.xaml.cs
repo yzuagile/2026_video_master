@@ -619,8 +619,8 @@ namespace framework
 
             if (!isTypingInTextBox)
             {
-                if (actualKey == Key.V) { SetEditorTool(EditorTool.Select); e.Handled = true; return; }
-                if (actualKey == Key.C) { SetEditorTool(EditorTool.Scissors); e.Handled = true; return; }
+                if (actualKey == Key.V && Keyboard.Modifiers == ModifierKeys.None) { SetEditorTool(EditorTool.Select); e.Handled = true; return; }
+                if (actualKey == Key.C && Keyboard.Modifiers == ModifierKeys.None) { SetEditorTool(EditorTool.Scissors); e.Handled = true; return; }
 
                 if (actualKey == Key.Delete)
                 {
