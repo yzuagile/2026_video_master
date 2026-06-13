@@ -43,8 +43,7 @@
                           LoadedBehavior="Manual"
                           Stretch="Uniform"
                                       MediaOpened="VideoPlayer_MediaOpened"/>
-
-                        <!-- 字卡預覽 Canvas（疊在影片上方，可拖曳） -->
+                        <Rectangle x:Name="BlackScreenGap" Fill="Black" Visibility="Collapsed"/>
                         <Canvas Name="SubtitleOverlayCanvas" IsHitTestVisible="True"
                                 Background="Transparent"/>
                     </Grid>
@@ -465,7 +464,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <Canvas Grid.Column="1" Name="TimeRulerCanvas" 
-                                            Background="#2D2D2D" HorizontalAlignment="Left"/>
+                    Background="#2D2D2D" HorizontalAlignment="Left"/>
                                 </Grid>
 
                                 <Grid Height="40" Margin="0,2">
@@ -476,13 +475,13 @@
                                         <ColumnDefinition Width="207*"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Foreground="#AAAAFF"
-                                               VerticalAlignment="Center" HorizontalAlignment="Center"
-                                               FontSize="10">
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       FontSize="10">
                                         <TextBlock.Text>💬 字卡軌 1</TextBlock.Text>
                                     </TextBlock>
                                     <Canvas Grid.Column="1" Name="SubtitleTrackCanvas0"
-                                            Background="#1A1A2E" HorizontalAlignment="Left"
-                                            Grid.ColumnSpan="3"/>
+                    Background="#1A1A2E" HorizontalAlignment="Left"
+                    Grid.ColumnSpan="3"/>
                                 </Grid>
 
                                 <Grid Height="40" Margin="0,2">
@@ -493,13 +492,13 @@
                                         <ColumnDefinition Width="207*"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Foreground="#AAAADD"
-                                               VerticalAlignment="Center" HorizontalAlignment="Center"
-                                               FontSize="10">
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       FontSize="10">
                                         <TextBlock.Text>💬 字卡軌 2</TextBlock.Text>
                                     </TextBlock>
                                     <Canvas Grid.Column="1" Name="SubtitleTrackCanvas1"
-                                            Background="#1A2035" HorizontalAlignment="Left"
-                                            Grid.ColumnSpan="3"/>
+                    Background="#1A2035" HorizontalAlignment="Left"
+                    Grid.ColumnSpan="3"/>
                                 </Grid>
 
                                 <Grid Height="40" Margin="0,2">
@@ -510,16 +509,16 @@
                                         <ColumnDefinition Width="207*"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Foreground="#AADDAA"
-                                               VerticalAlignment="Center" HorizontalAlignment="Center"
-                                               FontSize="10">
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       FontSize="10">
                                         <TextBlock.Text>💬 字卡軌 3</TextBlock.Text>
                                     </TextBlock>
                                     <Canvas Grid.Column="1" Name="SubtitleTrackCanvas2"
-                                            Background="#1A2A1E" HorizontalAlignment="Left"
-                                            Grid.ColumnSpan="3"/>
+                    Background="#1A2A1E" HorizontalAlignment="Left"
+                    Grid.ColumnSpan="3"/>
                                 </Grid>
 
-                                <Grid Height="120" Margin="0,2">
+                                <Grid Height="80" Margin="0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="80"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -527,18 +526,34 @@
                                         <ColumnDefinition Width="207*"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="🎬 影像軌" Foreground="White" 
-                                               VerticalAlignment="Center" HorizontalAlignment="Center"
-                                               FontSize="11"/>
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       FontSize="11"/>
                                     <Canvas Grid.Column="1" Name="VideoTrackCanvas" 
-                                            Background="#1E1E1E" HorizontalAlignment="Left" 
-                                            Grid.ColumnSpan="3"/>
+                    Background="#1E1E1E" HorizontalAlignment="Left" 
+                    Grid.ColumnSpan="3"/>
                                 </Grid>
+
+                                <Grid Height="35" Margin="0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="4*"/>
+                                        <ColumnDefinition Width="207*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="🎵 音訊軌" Foreground="White" 
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       FontSize="11"/>
+                                    <Canvas Grid.Column="1" Name="AudioTrackCanvas" 
+                    Background="#1A281E" HorizontalAlignment="Left" 
+                    Grid.ColumnSpan="3"/>
+                                </Grid>
+
                             </StackPanel>
 
                             <Canvas Name="PlayheadCanvas" IsHitTestVisible="False" 
                                     Margin="80,0,0,0" Panel.ZIndex="10">
                                 <Line x:Name="PlayheadLine" 
-                                      X1="0" Y1="0" X2="0" Y2="310"   
+                                      X1="0" Y1="0" X2="0" Y2="273"
                                       Stroke="Red" StrokeThickness="2" 
                                       Visibility="Collapsed"/>
                             </Canvas>
