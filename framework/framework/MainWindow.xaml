@@ -394,7 +394,8 @@
                     <RadioButton Name="RadioSelect" IsChecked="True"
                                  Checked="ToolRadioButton_Checked" Tag="Select"
                                  Style="{StaticResource ToolButtonStyle}"
-                                 VerticalAlignment="Center">
+                                 VerticalAlignment="Center"
+                                 ToolTip="左鍵點擊選取單一元素；右鍵拖曳框選多個元素">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="↖" FontSize="17" Margin="0,0,5,0" VerticalAlignment="Center"/>
                             <StackPanel Orientation="Vertical" VerticalAlignment="Center">
@@ -469,7 +470,9 @@
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Background="Transparent"
                                 MouseDown="VideoTrackCanvas_MouseDown"
                                 MouseMove="TimelineArea_MouseMove"
-                                MouseLeave="TimelineArea_MouseLeave">
+                                MouseLeave="TimelineArea_MouseLeave"
+                                MouseUp="TimelineArea_MouseUp"
+                                ContextMenuOpening="TimelineArea_ContextMenuOpening">
 
                         <Grid Name="TimelineContentStack">
                             <StackPanel Orientation="Vertical">
@@ -565,6 +568,8 @@
                                 </Grid>
 
                             </StackPanel>
+
+                            <Canvas Name="MarqueeCanvas" IsHitTestVisible="False" Panel.ZIndex="20"/>
 
                             <Canvas Name="PlayheadCanvas" IsHitTestVisible="False"
                                     Margin="80,0,0,0" Panel.ZIndex="10">

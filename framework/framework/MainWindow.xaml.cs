@@ -322,6 +322,12 @@ namespace framework
         public enum EditorTool { Select, Scissors }
         private EditorTool currentTool = EditorTool.Select;
 
+        // 矩形框選（右鍵拖曳）狀態
+        private bool isDrawingMarquee = false;
+        private Point marqueeStartPoint;
+        private System.Windows.Shapes.Rectangle? marqueeRect = null;
+        private List<ITimelineTrackItem> multiSelectedItems = new List<ITimelineTrackItem>();
+
         // 音訊片段資料結構
         public class AudioSegmentData : ITimelineTrackItem
         {
@@ -810,6 +816,13 @@ namespace framework
                 }
             }
 
+            // ── 矩形框選模式（右鍵拖曳）──
+            if (currentTool == EditorTool.Select && isDrawingMarquee)
+            {
+                UpdateMarquee(e.GetPosition(TimelineContentStack));
+                return;
+            }
+
             // ── 即時預覽模式 ──
             if (isLivePreviewEnabled && !isDraggingTrackItem && !isDraggingPlayhead && timelineX >= 0)
             {
@@ -847,6 +860,22 @@ namespace framework
                     wasPlayingBeforeLivePreview = false;
                 }
             }
+        }
+
+        private void TimelineArea_MouseUp(object sender, MouseButtonEventArgs e)
+        {
+            if (currentTool == EditorTool.Select && isDrawingMarquee && e.ChangedButton == MouseButton.Right)
+            {
+                CompleteMarquee(e.GetPosition(TimelineContentStack));
+                ((UIElement)sender).ReleaseMouseCapture();
+                e.Handled = true;
+            }
+        }
+
+        private void TimelineArea_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            // 時間軸區域以右鍵拖曳作為矩形框選，不顯示右鍵選單
+            e.Handled = true;
         }
 
         private void PreviewVideoAtSeconds(double seconds)
@@ -1708,7 +1737,19 @@ namespace framework
             return container;
         }
         // 處理左側拖動：非破壞性，只移動標記，可以隨時還原       
-        private void VideoTrackCanvas_MouseDown(object sender, MouseButtonEventArgs e) => ClearSelection();
+        private void VideoTrackCanvas_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            // 右鍵拖曳（選取模式）：啟動矩形框選
+            if (currentTool == EditorTool.Select && e.ChangedButton == MouseButton.Right)
+            {
+                StartMarquee(e.GetPosition(TimelineContentStack));
+                ((UIElement)sender).CaptureMouse();
+                e.Handled = true;
+                return;
+            }
+            if (e.ChangedButton == MouseButton.Left)
+                ClearSelection();
+        }
         private void SplitSegment(VideoSegmentData segment, double splitPointSeconds)
         {
             // 【新增】：防呆保護。確保切割點在片段中間，左右至少保留 0.5 秒的長度
@@ -1758,6 +1799,105 @@ namespace framework
             // 音訊跳轉保持在指令外部執行 (即時預覽行為)
             audioPreviewPlayer.Position = TimeSpan.FromSeconds(splitPointSeconds);
         }
+        // ─── 矩形框選輔助方法（右鍵拖曳）─────────────────────────────────────────
+
+        private void StartMarquee(Point startPoint)
+        {
+            isDrawingMarquee  = true;
+            marqueeStartPoint = startPoint;
+            MarqueeCanvas.Children.Clear();
+            marqueeRect = new System.Windows.Shapes.Rectangle
+            {
+                Stroke           = new SolidColorBrush(Color.FromRgb(0, 220, 255)),
+                StrokeThickness  = 1.5,
+                StrokeDashArray  = new DoubleCollection { 5, 3 },
+                Fill             = new SolidColorBrush(Color.FromArgb(25, 0, 200, 255)),
+                IsHitTestVisible = false
+            };
+            MarqueeCanvas.Children.Add(marqueeRect);
+        }
+
+        private void UpdateMarquee(Point currentPoint)
+        {
+            if (marqueeRect == null) return;
+            double x = Math.Min(marqueeStartPoint.X, currentPoint.X);
+            double y = Math.Min(marqueeStartPoint.Y, currentPoint.Y);
+            double w = Math.Abs(currentPoint.X - marqueeStartPoint.X);
+            double h = Math.Abs(currentPoint.Y - marqueeStartPoint.Y);
+            Canvas.SetLeft(marqueeRect, x);
+            Canvas.SetTop(marqueeRect,  y);
+            marqueeRect.Width  = w;
+            marqueeRect.Height = h;
+        }
+
+        private void CompleteMarquee(Point endPoint)
+        {
+            isDrawingMarquee = false;
+            MarqueeCanvas.Children.Clear();
+            marqueeRect = null;
+
+            double x1 = Math.Min(marqueeStartPoint.X, endPoint.X);
+            double y1 = Math.Min(marqueeStartPoint.Y, endPoint.Y);
+            double x2 = Math.Max(marqueeStartPoint.X, endPoint.X);
+            double y2 = Math.Max(marqueeStartPoint.Y, endPoint.Y);
+            if (x2 - x1 < 3 || y2 - y1 < 3) return; // 太小視為誤觸，忽略
+
+            var selectionRect = new Rect(x1, y1, x2 - x1, y2 - y1);
+
+            ClearSelection(); // 同時清除 multiSelectedItems（見 ClearSelection 內部）
+
+            CheckCanvasForMarquee(VideoTrackCanvas,  selectionRect);
+            CheckCanvasForMarquee(AudioTrackCanvas,  selectionRect);
+            foreach (var canvas in SubtitleTrackCanvases)
+                CheckCanvasForMarquee(canvas, selectionRect);
+        }
+
+        private void CheckCanvasForMarquee(Canvas trackCanvas, Rect selectionRect)
+        {
+            foreach (UIElement child in trackCanvas.Children)
+            {
+                if (child is not Grid grid || grid.Tag is not ITimelineTrackItem item) continue;
+                try
+                {
+                    var transform = grid.TransformToVisual(TimelineContentStack);
+                    double w = grid.ActualWidth  > 0 ? grid.ActualWidth  : grid.Width;
+                    double h = grid.ActualHeight > 0 ? grid.ActualHeight : grid.Height;
+                    var itemRect = new Rect(transform.Transform(new Point(0, 0)), new Size(w, h));
+                    if (selectionRect.IntersectsWith(itemRect))
+                    {
+                        multiSelectedItems.Add(item);
+                        HighlightForMultiSelect(grid, trackCanvas);
+                    }
+                }
+                catch { }
+            }
+        }
+
+        private void HighlightForMultiSelect(Grid grid, Canvas trackCanvas)
+        {
+            if (SubtitleTrackCanvases.Contains(trackCanvas))
+            {
+                foreach (UIElement inner in grid.Children)
+                    if (inner is Border b)
+                    {
+                        b.BorderBrush     = new SolidColorBrush(Color.FromRgb(0, 220, 255));
+                        b.BorderThickness = new Thickness(2);
+                    }
+            }
+            else
+            {
+                var rect = grid.Children.OfType<System.Windows.Shapes.Rectangle>().FirstOrDefault();
+                if (rect != null)
+                {
+                    rect.Stroke          = new SolidColorBrush(Color.FromRgb(0, 220, 255));
+                    rect.StrokeThickness = 2;
+                }
+                // 矩形框選後不啟用 Thumb 互動，避免選取完成仍停留在選取模式時誤觸邊緣調整控制點
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+
         private void ClearSelection()
         {
             Keyboard.ClearFocus();
@@ -1765,6 +1905,7 @@ namespace framework
             selectedSubtitleCard = null;
             selectedSegment = null;
             selectedAudioSegment = null;
+            multiSelectedItems.Clear();
 
             foreach (var child in VideoTrackCanvas.Children)
             {
@@ -1862,6 +2003,40 @@ namespace framework
         }
         private void BtnDelete_Click(object sender, RoutedEventArgs e)
         {
+            // 套索多重選取刪除
+            if (multiSelectedItems.Count > 0)
+            {
+                var toDelete = new List<ITimelineTrackItem>(multiSelectedItems);
+                multiSelectedItems.Clear(); // 提前清除，避免 DeleteVideoSegmentCommand 回呼 ClearSelection 時再次干擾
+                foreach (var item in toDelete)
+                {
+                    if (item is VideoSegmentData vs)
+                    {
+                        var cmd = new DeleteVideoSegmentCommand(videoSegments, VideoTrackCanvas, vs, ClearSelection);
+                        commandHistory.ExecuteCommand(cmd);
+                    }
+                    else if (item is AudioSegmentData asd)
+                    {
+                        var cmd = new DeleteAudioSegmentCommand(audioSegments, AudioTrackCanvas, asd, ClearSelection);
+                        commandHistory.ExecuteCommand(cmd);
+                    }
+                    else if (item is SubtitleStyle sub)
+                    {
+                        int idx = subtitleList.IndexOf(sub);
+                        if (idx >= 0)
+                        {
+                            var cmd = new DeleteSubtitleCommand(subtitleList, sub, idx, () => {
+                                selectedSubtitleCard = null;
+                                RedrawSubtitleCards();
+                                RebuildOverlayCards();
+                            });
+                            commandHistory.ExecuteCommand(cmd);
+                        }
+                    }
+                }
+                return;
+            }
+
             if (selectedSubtitleCard != null)
             {
                 if (selectedSubtitleCard.Tag is SubtitleStyle s)
@@ -2161,6 +2336,9 @@ namespace framework
         private void TrackItem_MouseDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is not Grid container || container.Tag is not ITimelineTrackItem itemData) return;
+
+            // 右鍵在選取模式下：讓事件冒泡到外層 StackPanel 以啟動矩形框選
+            if (currentTool == EditorTool.Select && e.ChangedButton == MouseButton.Right) return;
 
             if (currentTool == EditorTool.Scissors)
             {
