@@ -339,6 +339,7 @@ namespace framework
             {
                 get => Duration; set => Duration = value;
             }
+
         }
         // 在 private List<VideoSegmentData> videoSegments = new List<VideoSegmentData>(); 附近新增：
         private List<AudioSegmentData> audioSegments = new List<AudioSegmentData>();
@@ -1958,6 +1959,11 @@ namespace framework
             {
                 _clipboard = CloneVideoSegment(selectedSegment);
             }
+            // 【新增】：處理音訊軌的複製
+            else if (selectedAudioSegment != null)
+            {
+                _clipboard = CloneAudioSegment(selectedAudioSegment);
+            }
         }
 
         /// <summary>複製到剪貼簿，然後刪除原始元素（透過 Command 支援 Undo）。</summary>
@@ -1982,6 +1988,14 @@ namespace framework
                 var cmd = new DeleteVideoSegmentCommand(videoSegments, VideoTrackCanvas, selectedSegment, ClearSelection);
                 commandHistory.ExecuteCommand(cmd);
                 selectedSegment = null;
+            }
+            // 【新增】：處理音訊軌的剪下
+            else if (selectedAudioSegment != null)
+            {
+                _clipboard = CloneAudioSegment(selectedAudioSegment); // 先存 clone
+                var cmd = new DeleteAudioSegmentCommand(audioSegments, AudioTrackCanvas, selectedAudioSegment, ClearSelection);
+                commandHistory.ExecuteCommand(cmd);
+                selectedAudioSegment = null;
             }
         }
 
@@ -2042,6 +2056,20 @@ namespace framework
                     ClearSelection);
                 commandHistory.ExecuteCommand(cmd);
             }
+            // 【新增】：處理音訊軌的貼上
+            else if (_clipboard is AudioSegmentData srcAud)
+            {
+                var newAud = CloneAudioSegment(srcAud);
+                newAud.TimelineStart = timelineCurrentSeconds;   // 貼在游標右方
+                newAud.UIElement = CreateAudioSegmentUI(newAud); // 產生綠色的音訊 UI
+                Canvas.SetLeft(newAud.UIElement, newAud.TimelineStart * PIXELS_PER_SECOND);
+
+                var cmd = new PasteAudioSegmentCommand(
+                    audioSegments, AudioTrackCanvas, newAud,
+                    () => { ResolveAudioOverlaps(); RefreshAudioTrackUI(); },
+                    ClearSelection);
+                commandHistory.ExecuteCommand(cmd);
+            }
         }
 
         // ── Deep-copy 輔助 ──────────────────────────────────────────────
@@ -2067,7 +2095,14 @@ namespace framework
             CustomX         = src.CustomX,
             CustomY         = src.CustomY,
         };
-
+        private static AudioSegmentData CloneAudioSegment(AudioSegmentData src) => new AudioSegmentData
+        {
+            // 產生新 Guid，避免貼上後 Id 與原本的碰撞
+            TimelineStart = src.TimelineStart,
+            InternalOffset = src.InternalOffset,
+            Duration = src.Duration,
+            // UIElement 由呼叫端負責建立
+        };
         private static VideoSegmentData CloneVideoSegment(VideoSegmentData src) => new VideoSegmentData
         {
             // 新 Guid，避免 Id 碰撞
@@ -3347,6 +3382,49 @@ namespace framework
             else if (_item is MainWindow.AudioSegmentData a) a.InternalOffset = offset;
 
             _refreshAll();
+        }
+    }
+    public class PasteAudioSegmentCommand : IEditorCommand
+    {
+        private readonly List<MainWindow.AudioSegmentData> _audioSegments;
+        private readonly Canvas _audioTrackCanvas;
+        private readonly MainWindow.AudioSegmentData _newSegment;
+        private readonly Action _resolveAndRefresh;
+        private readonly Action _clearSelection;
+
+        public PasteAudioSegmentCommand(
+            List<MainWindow.AudioSegmentData> audioSegments,
+            Canvas audioTrackCanvas,
+            MainWindow.AudioSegmentData newSegment,
+            Action resolveAndRefresh,
+            Action clearSelection)
+        {
+            _audioSegments = audioSegments;
+            _audioTrackCanvas = audioTrackCanvas;
+            _newSegment = newSegment;
+            _resolveAndRefresh = resolveAndRefresh;
+            _clearSelection = clearSelection;
+        }
+
+        public void Execute()
+        {
+            if (!_audioSegments.Contains(_newSegment))
+                _audioSegments.Add(_newSegment);
+            if (!_audioTrackCanvas.Children.Contains(_newSegment.UIElement))
+                _audioTrackCanvas.Children.Add(_newSegment.UIElement);
+
+            // 執行貼上後，重新計算防撞並更新 UI 位置
+            _resolveAndRefresh();
+        }
+
+        public void Undo()
+        {
+            _clearSelection();
+            _audioSegments.Remove(_newSegment);
+            _audioTrackCanvas.Children.Remove(_newSegment.UIElement);
+
+            // 撤銷後也要重整 UI
+            _resolveAndRefresh();
         }
     }
     public class PasteVideoSegmentCommand : IEditorCommand
