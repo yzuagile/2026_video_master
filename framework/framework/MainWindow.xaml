@@ -7,6 +7,73 @@
         PreviewKeyDown="MainWindow_PreviewKeyDown"
         PreviewMouseDown="Window_PreviewMouseDown"
         InputMethod.IsInputMethodEnabled="False">
+    <Window.Resources>
+        <Style x:Key="ToolButtonStyle" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Margin" Value="3,3"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="8,5">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3A3A4A"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3D6EBF"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#5D8EDF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="LivePreviewToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Bd"
+                                Background="#555555"
+                                BorderBrush="#777777"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="8,5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#4A4A5A"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#2E7D32"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#4CAF50"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="True"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Bd" Property="Background" Value="#388E3C"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
     <Grid Name="MainRootGrid" Focusable="True" Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="50"/>
@@ -408,12 +475,43 @@
                             Background="#FF9800" Foreground="White" BorderThickness="0" 
                             Cursor="Hand" Click="BtnPause_Click"/>
 
-                    <RadioButton Name="RadioSelect" Content="🏹 選取 (V)" IsChecked="True" 
-                                 Margin="5" Foreground="White" VerticalAlignment="Center" 
-                                 Checked="ToolRadioButton_Checked" Tag="Select"/>
-                    <RadioButton Name="RadioScissors" Content="✂️ 剪刀 (C)" 
-                                 Margin="5" Foreground="White" VerticalAlignment="Center" 
-                                 Checked="ToolRadioButton_Checked" Tag="Scissors"/>
+                    <RadioButton Name="RadioSelect" IsChecked="True"
+                                 Checked="ToolRadioButton_Checked" Tag="Select"
+                                 Style="{StaticResource ToolButtonStyle}"
+                                 VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="↖" FontSize="17" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                <TextBlock Text="選取" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Text="(V)" FontSize="9" Opacity="0.65"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton Name="RadioScissors"
+                                 Checked="ToolRadioButton_Checked" Tag="Scissors"
+                                 Style="{StaticResource ToolButtonStyle}"
+                                 VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="✂" FontSize="17" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                <TextBlock Text="剪刀" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Text="(C)" FontSize="9" Opacity="0.65"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </RadioButton>
+                    <ToggleButton x:Name="BtnLivePreview"
+                                 Margin="5,3" Style="{StaticResource LivePreviewToggleStyle}"
+                                 VerticalAlignment="Center"
+                                 Click="BtnLivePreview_Click"
+                                 ToolTip="開啟後，滑鼠懸停於時間軸時預覽視窗將即時跟隨游標位置">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="👁" FontSize="14" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                <TextBlock Text="即時預覽" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Text="(hover)" FontSize="9" Opacity="0.65"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ToggleButton>
                     <Button x:Name="BtnDelete" Content="✖ 刪除 (Del)" 
                             Click="BtnDelete_Click" 
                             Margin="10,5,5,5" Padding="10,0" 
@@ -452,8 +550,10 @@
                               HorizontalScrollBarVisibility="Hidden" 
                               VerticalScrollBarVisibility="Auto">
 
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Background="Transparent" 
-                                MouseDown="VideoTrackCanvas_MouseDown">
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Background="Transparent"
+                                MouseDown="VideoTrackCanvas_MouseDown"
+                                MouseMove="TimelineArea_MouseMove"
+                                MouseLeave="TimelineArea_MouseLeave">
 
                         <Grid Name="TimelineContentStack">
                             <StackPanel Orientation="Vertical">
@@ -550,11 +650,16 @@
 
                             </StackPanel>
 
-                            <Canvas Name="PlayheadCanvas" IsHitTestVisible="False" 
+                            <Canvas Name="PlayheadCanvas" IsHitTestVisible="False"
                                     Margin="80,0,0,0" Panel.ZIndex="10">
-                                <Line x:Name="PlayheadLine" 
+                                <Line x:Name="PlayheadLine"
                                       X1="0" Y1="0" X2="0" Y2="273"
-                                      Stroke="Red" StrokeThickness="2" 
+                                      Stroke="Red" StrokeThickness="2"
+                                      Visibility="Collapsed"/>
+                                <Line x:Name="SnapIndicatorLine"
+                                      X1="0" Y1="0" X2="0" Y2="273"
+                                      Stroke="Yellow" StrokeThickness="1"
+                                      StrokeDashArray="4,2"
                                       Visibility="Collapsed"/>
                             </Canvas>
                         </Grid>

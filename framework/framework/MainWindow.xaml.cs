@@ -288,6 +288,11 @@ namespace framework
         private List<SubtitleStyle>? preDragSubtitleOrder;
         private Dictionary<SubtitleStyle, double>? preDragSubtitleStarts;
 
+        // ── 即時預覽模式
+        private bool isLivePreviewEnabled      = false;
+        private bool isHoveringForPreview      = false;
+        private bool wasPlayingBeforeLivePreview = false;
+
         // ── 剪貼簿（只存一份，可放 VideoSegmentData 或 SubtitleStyle 的 deep copy）
         private object? _clipboard = null;   // 實際型別：VideoSegmentData | SubtitleStyle
 
@@ -760,11 +765,127 @@ namespace framework
             {
                 this.Cursor = Cursors.Arrow;
                 if (RadioSelect != null && RadioSelect.IsChecked == false) RadioSelect.IsChecked = true;
+                SnapIndicatorLine.Visibility = Visibility.Collapsed;
             }
             else if (tool == EditorTool.Scissors)
             {
                 this.Cursor = Cursors.Cross;
                 if (RadioScissors != null && RadioScissors.IsChecked == false) RadioScissors.IsChecked = true;
+            }
+        }
+
+        private void TimelineArea_MouseMove(object sender, MouseEventArgs e)
+        {
+            Point rawPos = e.GetPosition(TimelineContentStack);
+            double timelineX = rawPos.X - 80;
+
+            // ── 剪刀模式：吸附輔助線 ──
+            if (currentTool == EditorTool.Scissors && !isDraggingTrackItem)
+            {
+                if (timelineX >= 0)
+                {
+                    var snapPoints = new List<double> { 0.0 };
+                    snapPoints.Add(timelineCurrentSeconds * PIXELS_PER_SECOND);
+                    foreach (var seg in videoSegments)
+                    {
+                        snapPoints.Add(seg.TimelineStartSeconds * PIXELS_PER_SECOND);
+                        snapPoints.Add((seg.TimelineStartSeconds + seg.TimelineDurationSeconds) * PIXELS_PER_SECOND);
+                    }
+                    foreach (var seg in audioSegments)
+                    {
+                        snapPoints.Add(seg.TimelineStartSeconds * PIXELS_PER_SECOND);
+                        snapPoints.Add((seg.TimelineStartSeconds + seg.TimelineDurationSeconds) * PIXELS_PER_SECOND);
+                    }
+                    double snappedX = timelineX, bestDist = double.MaxValue;
+                    foreach (var sp in snapPoints)
+                    {
+                        double d = Math.Abs(timelineX - sp);
+                        if (d < SNAP_THRESHOLD_PX && d < bestDist) { bestDist = d; snappedX = sp; }
+                    }
+                    Canvas.SetLeft(SnapIndicatorLine, snappedX);
+                    SnapIndicatorLine.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    SnapIndicatorLine.Visibility = Visibility.Collapsed;
+                }
+            }
+
+            // ── 即時預覽模式 ──
+            if (isLivePreviewEnabled && !isDraggingTrackItem && !isDraggingPlayhead && timelineX >= 0)
+            {
+                if (!isHoveringForPreview)
+                {
+                    isHoveringForPreview = true;
+                    wasPlayingBeforeLivePreview = playheadTimer.IsEnabled;
+                    if (wasPlayingBeforeLivePreview)
+                    {
+                        VideoPlayer.Pause();
+                        audioPreviewPlayer.Pause();
+                        playheadTimer.Stop();
+                    }
+                }
+                PreviewVideoAtSeconds(timelineX / PIXELS_PER_SECOND);
+            }
+        }
+
+        private void TimelineArea_MouseLeave(object sender, MouseEventArgs e)
+        {
+            if (!isDraggingTrackItem)
+                SnapIndicatorLine.Visibility = Visibility.Collapsed;
+
+            // 拖曳片段期間 MouseLeave 可能因滑鼠超出 StackPanel 而觸發，此時不應恢復播放
+            if (isLivePreviewEnabled && isHoveringForPreview && !isDraggingTrackItem)
+            {
+                isHoveringForPreview = false;
+                PreviewVideoAtSeconds(timelineCurrentSeconds);
+                if (wasPlayingBeforeLivePreview)
+                {
+                    VideoPlayer.Play();
+                    audioPreviewPlayer.Play();
+                    lastTickTime = DateTime.Now;
+                    playheadTimer.Start();
+                    wasPlayingBeforeLivePreview = false;
+                }
+            }
+        }
+
+        private void PreviewVideoAtSeconds(double seconds)
+        {
+            var segment = videoSegments.FirstOrDefault(s =>
+                seconds >= s.TimelineStartSeconds &&
+                seconds < s.TimelineStartSeconds + s.TimelineDurationSeconds);
+
+            if (segment != null)
+            {
+                VideoPlayer.Position = TimeSpan.FromSeconds(
+                    segment.InternalOffset + (seconds - segment.TimelineStartSeconds));
+                BlackScreenGap.Visibility = Visibility.Collapsed;
+                VideoPlayer.Opacity = 1;
+            }
+            else
+            {
+                BlackScreenGap.Visibility = Visibility.Visible;
+                VideoPlayer.Opacity = 0;
+            }
+            UpdateSubtitleOverlay(seconds);
+        }
+
+        private void BtnLivePreview_Click(object sender, RoutedEventArgs e)
+        {
+            isLivePreviewEnabled = BtnLivePreview.IsChecked == true;
+            if (!isLivePreviewEnabled && isHoveringForPreview)
+            {
+                isHoveringForPreview = false;
+                PreviewVideoAtSeconds(timelineCurrentSeconds);
+                if (wasPlayingBeforeLivePreview)
+                {
+                    VideoPlayer.Play();
+                    audioPreviewPlayer.Play();
+                    lastTickTime = DateTime.Now;
+                    playheadTimer.Start();
+                    wasPlayingBeforeLivePreview = false;
+                }
             }
         }
 
@@ -2155,6 +2276,49 @@ namespace framework
             container.CaptureMouse();
             e.Handled = true;
         }
+        private const double SNAP_THRESHOLD_PX = 8.0;
+
+        private double TrySnap(double newLeft, double itemWidth, out double snapX)
+        {
+            snapX = double.NaN;
+            var snapPoints = new List<double> { 0.0 };
+            snapPoints.Add(timelineCurrentSeconds * PIXELS_PER_SECOND);
+            foreach (var seg in videoSegments)
+            {
+                if (draggedTrackItemData is VideoSegmentData v && v.Id == seg.Id) continue;
+                snapPoints.Add(seg.TimelineStartSeconds * PIXELS_PER_SECOND);
+                snapPoints.Add((seg.TimelineStartSeconds + seg.TimelineDurationSeconds) * PIXELS_PER_SECOND);
+            }
+            foreach (var seg in audioSegments)
+            {
+                if (draggedTrackItemData is AudioSegmentData a && a.Id == seg.Id) continue;
+                snapPoints.Add(seg.TimelineStartSeconds * PIXELS_PER_SECOND);
+                snapPoints.Add((seg.TimelineStartSeconds + seg.TimelineDurationSeconds) * PIXELS_PER_SECOND);
+            }
+
+            double bestDelta = double.MaxValue;
+            double bestLeft  = newLeft;
+            double bestSnapX = double.NaN;
+            double rightEdge = newLeft + itemWidth;
+
+            foreach (var sp in snapPoints)
+            {
+                double d1 = Math.Abs(newLeft - sp);
+                if (d1 < SNAP_THRESHOLD_PX && d1 < bestDelta)
+                {
+                    bestDelta = d1; bestLeft = sp; bestSnapX = sp;
+                }
+                double d2 = Math.Abs(rightEdge - sp);
+                if (d2 < SNAP_THRESHOLD_PX && d2 < bestDelta)
+                {
+                    bestDelta = d2; bestLeft = sp - itemWidth; bestSnapX = sp;
+                }
+            }
+
+            snapX = bestSnapX;
+            return bestLeft;
+        }
+
         private void TrackItem_MouseMove(object sender, MouseEventArgs e)
         {
             if (!isDraggingTrackItem || draggedTrackItemUI == null || draggedTrackItemData == null) return;
@@ -2170,8 +2334,21 @@ namespace framework
             double minLeft = 0;
             double maxLeft = maxEnd * PIXELS_PER_SECOND;
 
-            // 允許自由穿梭重疊 (無視碰撞，直到 MouseUp 才結算)
-            newLeft = Math.Clamp(newLeft, minLeft, maxLeft);
+            // 自動吸附：優先吸附，再 Clamp
+            double itemWidth = draggedTrackItemUI.ActualWidth > 0 ? draggedTrackItemUI.ActualWidth : draggedTrackItemUI.Width;
+            double snappedLeft = TrySnap(newLeft, itemWidth, out double snapX);
+            newLeft = Math.Clamp(snappedLeft, minLeft, maxLeft);
+
+            // 若 Clamp 修正了吸附結果，輔助線不應顯示（實際位置已偏離吸附點）
+            if (!double.IsNaN(snapX) && Math.Abs(newLeft - snappedLeft) < 0.5)
+            {
+                Canvas.SetLeft(SnapIndicatorLine, snapX);
+                SnapIndicatorLine.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                SnapIndicatorLine.Visibility = Visibility.Collapsed;
+            }
 
             Canvas.SetLeft(draggedTrackItemUI, newLeft);
             double newStartSeconds = newLeft / PIXELS_PER_SECOND;
@@ -2200,6 +2377,21 @@ namespace framework
 
             isDraggingTrackItem = false;
             draggedTrackItemUI.ReleaseMouseCapture();
+            SnapIndicatorLine.Visibility = Visibility.Collapsed;
+
+            // 若即時預覽在拖曳期間因 MouseLeave 未能正常收尾，在此補上還原
+            if (isHoveringForPreview)
+            {
+                isHoveringForPreview = false;
+                if (wasPlayingBeforeLivePreview)
+                {
+                    VideoPlayer.Play();
+                    audioPreviewPlayer.Play();
+                    lastTickTime = DateTime.Now;
+                    playheadTimer.Start();
+                    wasPlayingBeforeLivePreview = false;
+                }
+            }
 
             double finalLeft   = Canvas.GetLeft(draggedTrackItemUI);
             bool actuallyMoved = Math.Abs(finalLeft - trackDragStartLeft) > 1.0;
