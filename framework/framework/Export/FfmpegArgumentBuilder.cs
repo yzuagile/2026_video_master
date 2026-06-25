@@ -22,7 +22,7 @@ namespace framework.Export
                 double currentTime = 0;
                 string concatInputs = "";
 
-                foreach (var seg in settings.Segments)
+                foreach (var seg in settings.Segments!)
                 {
                     if (seg.TimelineStart > currentTime + 0.05) // 0.05秒容錯
                     {

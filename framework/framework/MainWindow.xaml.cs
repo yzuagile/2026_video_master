@@ -254,8 +254,8 @@ namespace framework
         private bool           isDraggingOverlay    = false;
 
         private MediaPlayer audioPreviewPlayer = new MediaPlayer();
-        private System.Windows.Threading.DispatcherTimer playheadTimer;
-        private System.Windows.Threading.DispatcherTimer autoScrollTimerInstance;
+        private System.Windows.Threading.DispatcherTimer playheadTimer = null!;
+        private System.Windows.Threading.DispatcherTimer autoScrollTimerInstance = null!;
         private const double PIXELS_PER_SECOND = 20;
         private DateTime lastTickTime = DateTime.Now;     // 用來計算現實中過了幾秒
         private double timelineCurrentSeconds = 0;        // 時間軸的虛擬時鐘 (紅線的真正位置)
@@ -302,7 +302,7 @@ namespace framework
             public double TimelineStart  { get; set; }                   // 在時間軸上的起始秒數 (Canvas Left)
             public double InternalOffset { get; set; }                   // 影片內容的起始點 (從原始影片第幾秒開始撥)
             public double Duration       { get; set; }                   // 片段持續長度
-            public Grid   UIElement      { get; set; }                   // 對應的 UI 物件 (藍色框框)
+            public Grid?  UIElement      { get; set; }                   // 對應的 UI 物件 (藍色框框)
             public double TimelineStartSeconds
             {
                 get => TimelineStart; set => TimelineStart = value;
@@ -335,7 +335,7 @@ namespace framework
             public double TimelineStart { get; set; }      // 時間軸上的起始秒數
             public double InternalOffset { get; set; }     // 音訊內容的起始點
             public double Duration { get; set; }           // 片段長度
-            public Grid UIElement { get; set; }            // 對應的 UI 物件 (例如綠色或橘色方塊)
+            public Grid? UIElement { get; set; }            // 對應的 UI 物件 (例如綠色或橘色方塊)
 
             public double TimelineStartSeconds
             {
@@ -480,7 +480,7 @@ namespace framework
             autoScrollTimerInstance.Tick += autoScrollTimerInstance_Tick;
         }
 
-        private void PlayheadTimer_Tick(object sender, EventArgs e)
+        private void PlayheadTimer_Tick(object? sender, EventArgs e)
         {
             if (VideoPlayer.Source == null) return;
 
@@ -544,7 +544,7 @@ namespace framework
             SyncAudioPlayerToTimeline(timelineCurrentSeconds); // 同步音軌
         }
 
-        private void autoScrollTimerInstance_Tick(object sender, EventArgs e)
+        private void autoScrollTimerInstance_Tick(object? sender, EventArgs e)
         {
             if (!isDraggingPlayhead) return;
 
@@ -921,7 +921,7 @@ namespace framework
         {
             if (sender is RadioButton rb && rb.Tag != null)
             {
-                string toolName = rb.Tag.ToString();
+                string toolName = rb.Tag.ToString() ?? string.Empty;
                 if (toolName == "Select")
                     SetEditorTool(EditorTool.Select);
                 else if (toolName == "Scissors")
@@ -3186,7 +3186,7 @@ namespace framework
         private List<MainWindow.VideoSegmentData> _videoSegments;
         private Canvas _videoTrackCanvas;
         private MainWindow.VideoSegmentData _originalSegment;
-        private MainWindow.VideoSegmentData _newSegment;
+        private MainWindow.VideoSegmentData _newSegment = null!; // 於 Execute() 首次賦值，Undo 必在 Execute 之後呼叫
 
         private double _originalDuration;
         private double _splitPointSeconds;
@@ -3266,7 +3266,7 @@ namespace framework
         private List<AudioSegmentData> _audioSegments;
         private Canvas _audioTrackCanvas;
         private AudioSegmentData _originalSegment;
-        private AudioSegmentData _newSegment;
+        private AudioSegmentData _newSegment = null!; // 於 Execute() 首次賦值，Undo 必在 Execute 之後呼叫
 
         private double _originalDuration;
         private double _splitPointSeconds;
