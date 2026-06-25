@@ -28,7 +28,7 @@ namespace framework
         public string Text            { get; set; } = "";
         public string FontFamily      { get; set; } = "微軟正黑體";
         public double FontSize        { get; set; } = 24;
-        public string FontWeight      { get; set; } = "Normal";
+        public string FontWeight      { get; set; } = "一般";
         public bool   IsItalic        { get; set; } = false;
         public bool   IsUnderline     { get; set; } = false;
         public string FontColor       { get; set; } = "#FFFFFF";
@@ -36,7 +36,7 @@ namespace framework
         public double StrokeWidth     { get; set; } = 0;
         public string StrokeColor     { get; set; } = "#000000";
         public string BackgroundColor { get; set; } = "#00000000";
-        public string Position        { get; set; } = "底部置中（Bottom Center）";
+        public string Position        { get; set; } = "底部置中";
         public double StartSeconds    { get; set; } = 0;
         public double DurationSeconds { get; set; } = 5;
         public int    TrackIndex      { get; set; } = 0;  // 0~2，對應字卡軌 1~3
@@ -71,9 +71,9 @@ namespace framework
             {
                 string fontPath = ResolveFontPath(s.FontFamily, s.FontWeight, s.IsItalic);
                 string escapedText = s.Text.Replace("\\", "\\\\").Replace("'", "\\'").Replace(":", "\\:");
-                string fc = ToFfmpegColor(s.FontColor, 1.0);
-                string sc = ToFfmpegColor(s.StrokeColor, 1.0);
-                string shadow = ToFfmpegColor(s.ShadowColor, 0.8);
+                string fc     = ToFfmpegColor(s.FontColor);
+                string sc     = ToFfmpegColor(s.StrokeColor);
+                string shadow = ToFfmpegColor(s.ShadowColor);
 
                 int scaledFontSize = Math.Max(1, (int)(s.FontSize * fontScale));
                 string x, y;
@@ -91,17 +91,17 @@ namespace framework
 
                     y = s.Position switch
                     {
-                        "頂部置中（Top Center）" => topY.ToString(),
-                        "中央置中（Middle Center）" => "(h-text_h)/2",
-                        "底部靠左（Bottom Left）" => $"h-text_h-{padY}",
-                        "底部靠右（Bottom Right）" => $"h-text_h-{padY}",
-                        _ => $"h-text_h-{padY}"
+                        "頂部置中" => topY.ToString(),
+                        "中央置中" => "(h-text_h)/2",
+                        "底部靠左" => $"h-text_h-{padY}",
+                        "底部靠右" => $"h-text_h-{padY}",
+                        _         => $"h-text_h-{padY}"
                     };
                     x = s.Position switch
                     {
-                        "底部靠左（Bottom Left）" => padX.ToString(),
-                        "底部靠右（Bottom Right）" => $"w-text_w-{padX}",
-                        _ => "(w-text_w)/2"
+                        "底部靠左" => padX.ToString(),
+                        "底部靠右" => $"w-text_w-{padX}",
+                        _         => "(w-text_w)/2"
                     };
                 }
 
@@ -131,7 +131,7 @@ namespace framework
 
                 if (!s.BackgroundColor.TrimStart('#').StartsWith("00"))
                 {
-                    string bg = ToFfmpegColor(s.BackgroundColor, 1.0);
+                    string bg = ToFfmpegColor(s.BackgroundColor);
                     int scaledBoxBorder = Math.Max(1, (int)(6 * fontScale));
                     parts.Add("box=1");
                     parts.Add($"boxcolor={bg}");
@@ -145,7 +145,7 @@ namespace framework
         }
         private static string ResolveFontPath(string fontFamily, string fontWeight, bool isItalic)
         {
-            bool isBold = fontWeight == "Bold" || fontWeight == "ExtraBold";
+            bool isBold = fontWeight == "粗體" || fontWeight == "特粗";
             if (fontFamily.Equals("Arial", StringComparison.OrdinalIgnoreCase))
             {
                 if (isBold && isItalic) return @"C\:/Windows/Fonts/arialbi.ttf"; // 粗斜體
@@ -169,7 +169,7 @@ namespace framework
             }
             if (fontFamily.Equals("微軟正黑體", StringComparison.OrdinalIgnoreCase))
             {
-                if (fontWeight == "Light") return @"C\:/Windows/Fonts/msjhl.ttc"; // 細體
+                if (fontWeight == "細體") return @"C\:/Windows/Fonts/msjhl.ttc"; // 細體
                 if (isBold) return @"C\:/Windows/Fonts/msjhbd.ttc";               // 粗體
                 return @"C\:/Windows/Fonts/msjh.ttc";                             // 一般
             }
@@ -184,15 +184,14 @@ namespace framework
             return @"C\:/Windows/Fonts/msjh.ttc";
         }
 
-        private static string ToFfmpegColor(string hex, double alphaOverride)
+        private static string ToFfmpegColor(string hex)
         {
             hex = hex.TrimStart('#');
-            string r, g, b;
-            if      (hex.Length == 8) { r = hex[2..4]; g = hex[4..6]; b = hex[6..8]; }
-            else if (hex.Length == 6) { r = hex[0..2]; g = hex[2..4]; b = hex[4..6]; }
-            else                      { r = "FF"; g = "FF"; b = "FF"; }
-            int aa = (int)(alphaOverride * 255);
-            return $"0x{r}{g}{b}{aa:X2}";
+            string a, r, g, b;
+            if      (hex.Length == 8) { a = hex[0..2]; r = hex[2..4]; g = hex[4..6]; b = hex[6..8]; }
+            else if (hex.Length == 6) { a = "FF"; r = hex[0..2]; g = hex[2..4]; b = hex[4..6]; }
+            else                      { a = "FF"; r = "FF"; g = "FF"; b = "FF"; }
+            return $"0x{r}{g}{b}{a}";
         }
 
         private static (string x, string y) ResolvePosition(SubtitleStyle s)
@@ -202,11 +201,11 @@ namespace framework
 
             return s.Position switch
             {
-                "頂部置中（Top Center）"    => ("(w-text_w)/2", "20"),
-                "中央置中（Middle Center）" => ("(w-text_w)/2", "(h-text_h)/2"),
-                "底部靠左（Bottom Left）"   => ("20",           "h-text_h-30"),
-                "底部靠右（Bottom Right）"  => ("w-text_w-20",  "h-text_h-30"),
-                _                           => ("(w-text_w)/2", "h-text_h-30"),
+                "頂部置中" => ("(w-text_w)/2", "20"),
+                "中央置中" => ("(w-text_w)/2", "(h-text_h)/2"),
+                "底部靠左" => ("20",           "h-text_h-30"),
+                "底部靠右" => ("w-text_w-20",  "h-text_h-30"),
+                _          => ("(w-text_w)/2", "h-text_h-30"),
             };
         }
     }
@@ -1156,7 +1155,7 @@ namespace framework
             {
                 FontFamily      = (ComboFontFamily?.SelectedItem  as ComboBoxItem)?.Content?.ToString() ?? "微軟正黑體",
                 FontSize        = fontSize,
-                FontWeight      = (ComboFontWeight?.SelectedItem  as ComboBoxItem)?.Content?.ToString() ?? "Normal",
+                FontWeight      = (ComboFontWeight?.SelectedItem  as ComboBoxItem)?.Content?.ToString() ?? "一般",
                 IsItalic        = ChkItalic?.IsChecked    == true,
                 IsUnderline     = ChkUnderline?.IsChecked == true,
                 FontColor       = _fontColorHex,
@@ -1164,7 +1163,7 @@ namespace framework
                 StrokeWidth     = SliderStroke?.Value   ?? 0,
                 StrokeColor     = _borderColorHex,
                 BackgroundColor = _bgColorHex,
-                Position        = (ComboPosition?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "底部置中（Bottom Center）",
+                Position        = (ComboPosition?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "底部置中",
                 StartSeconds    = startSec,
                 DurationSeconds = durSec,
             };
@@ -1226,10 +1225,13 @@ namespace framework
             if (tag == null) return;
 
             var newStyle = ReadStyleFromUI();
-            newStyle.Text            = tag.Text;
-            newStyle.StartSeconds    = tag.StartSeconds;
-            newStyle.DurationSeconds = tag.DurationSeconds;
-            newStyle.TrackIndex      = tag.TrackIndex;  // 保留原軌道
+            newStyle.Text              = tag.Text;
+            newStyle.StartSeconds      = tag.StartSeconds;
+            newStyle.DurationSeconds   = tag.DurationSeconds;
+            newStyle.TrackIndex        = tag.TrackIndex;
+            newStyle.UseCustomPosition = tag.UseCustomPosition;
+            newStyle.CustomX           = tag.CustomX;
+            newStyle.CustomY           = tag.CustomY;
 
             int idx = subtitleList.IndexOf(tag);
             if (idx >= 0)
@@ -1315,8 +1317,17 @@ namespace framework
 
             ApplyStyleToTextBlock(tb, border, s, scaleDown: false);
 
+            border.MouseLeftButtonDown += OverlayCard_MouseDown;
+            border.MouseMove           += OverlayCard_MouseMove;
+            border.MouseLeftButtonUp   += OverlayCard_MouseUp;
+
+            // Add to canvas first so WPF can measure text with fonts loaded in the visual tree
+            SubtitleOverlayCanvas.Children.Add(border);
+            overlayBorderMap[s] = border;
+
             SubtitleOverlayCanvas.UpdateLayout();
             border.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+
             (double initLeft, double initTop) = s.UseCustomPosition
                 ? (s.CustomX, s.CustomY)
                 : CalcDefaultPosition(s.Position,
@@ -1326,13 +1337,6 @@ namespace framework
                                       border.DesiredSize.Height);
             Canvas.SetLeft(border, initLeft);
             Canvas.SetTop(border,  initTop);
-
-            border.MouseLeftButtonDown += OverlayCard_MouseDown;
-            border.MouseMove           += OverlayCard_MouseMove;
-            border.MouseLeftButtonUp   += OverlayCard_MouseUp;
-
-            SubtitleOverlayCanvas.Children.Add(border);
-            overlayBorderMap[s] = border;
             return border;
         }
 
@@ -1405,11 +1409,11 @@ namespace framework
         {
             return position switch
             {
-                "頂部置中（Top Center）"    => ((cw - bw) / 2, 20),
-                "中央置中（Middle Center）" => ((cw - bw) / 2, (ch - bh) / 2),
-                "底部靠左（Bottom Left）"   => (20, ch - bh - 30),
-                "底部靠右（Bottom Right）"  => (cw - bw - 20, ch - bh - 30),
-                _                           => ((cw - bw) / 2, ch - bh - 30),
+                "頂部置中" => ((cw - bw) / 2, 20),
+                "中央置中" => ((cw - bw) / 2, (ch - bh) / 2),
+                "底部靠左" => (20, ch - bh - 30),
+                "底部靠右" => (cw - bw - 20, ch - bh - 30),
+                _          => ((cw - bw) / 2, ch - bh - 30),
             };
         }
 
@@ -1424,10 +1428,10 @@ namespace framework
 
             tb.FontWeight = s.FontWeight switch
             {
-                "Bold"      => FontWeights.Bold,
-                "ExtraBold" => FontWeights.ExtraBold,
-                "Light"     => FontWeights.Light,
-                _           => FontWeights.Normal
+                "粗體" => FontWeights.Bold,
+                "特粗" => FontWeights.ExtraBold,
+                "細體" => FontWeights.Light,
+                _     => FontWeights.Normal
             };
             tb.FontStyle       = s.IsItalic   ? FontStyles.Italic    : FontStyles.Normal;
             tb.TextDecorations = s.IsUnderline ? TextDecorations.Underline : null;
@@ -2104,32 +2108,12 @@ namespace framework
             }    
         }
 
-        //  匯出輔助
-        private ExportSettings CreateExportSettings(VideoFormat format, string bitrate, ExportWindow ew)
-        {
-            return new ExportSettings
-            {
-                Format           = format,
-                Bitrate          = bitrate,
-                VideoCodec       = ew.SelectedVideoCodec,
-                AudioCodec       = ew.SelectedAudioCodec,
-                AudioBitrate     = "128",
-                AudioChannels    = 2,
-                OutputWidth      = ew.OutputWidth,
-                OutputHeight     = ew.OutputHeight,
-                EnableFastStart  = ew.EnableFastStart,
-                TrimStartSeconds = trimStartSeconds,
-                TrimEndSeconds   = trimEndSeconds,
-                DurationSeconds  = currentVideoDuration,
-                SubtitleText     = pendingSubtitleText,
-            };
-        }
-
         private bool AskSaveExportPath(ExportSettings settings)
         {
              var dlg = new SaveFileDialog
             {
                 Filter           = "MP4 檔案 (*.mp4)|*.mp4|MKV 檔案 (*.mkv)|*.mkv|MOV 檔案 (*.mov)|*.mov",
+                FilterIndex      = settings.Format switch { VideoFormat.MKV => 2, VideoFormat.MOV => 3, _ => 1 },
                 FileName         = Path.GetFileNameWithoutExtension(currentVideoPath) + "." + settings.Format.ToString().ToLower(),
                 DefaultExt       = settings.Format.ToString().ToLower(),
                 AddExtension     = true,
@@ -2580,7 +2564,7 @@ namespace framework
             for (int ti = 0; ti < SUBTITLE_TRACK_COUNT; ti++)
             {
                 var trackItems = subtitleList.Where(s => s.TrackIndex == ti)
-                                             .OrderBy(s => s.StartSeconds + s.DurationSeconds / 2.0)
+                                             .OrderBy(s => s.StartSeconds)
                                              .ToList();
                 double nextValid = 0;
                 foreach (var sub in trackItems)
@@ -2599,6 +2583,7 @@ namespace framework
                 if (newWidth > VideoTrackCanvas.Width)
                 {
                     VideoTrackCanvas.Width     = newWidth;
+                    AudioTrackCanvas.Width     = newWidth;
                     foreach (var c in SubtitleTrackCanvases) c.Width = newWidth;
                     TimeRulerCanvas.Width      = newWidth;
                     TimelineContentStack.Width = newWidth;

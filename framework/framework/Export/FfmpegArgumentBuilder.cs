@@ -39,7 +39,10 @@ namespace framework.Export
                     }
                     double endOffset = seg.InternalOffset + seg.Duration;
                     filterParts.Add($"[0:v]trim=start={seg.InternalOffset.ToString("F3", CultureInfo.InvariantCulture)}:end={endOffset.ToString("F3", CultureInfo.InvariantCulture)},setpts=PTS-STARTPTS[v{idx}]");
-                    filterParts.Add($"[0:a]atrim=start={seg.InternalOffset.ToString("F3", CultureInfo.InvariantCulture)}:end={endOffset.ToString("F3", CultureInfo.InvariantCulture)},asetpts=PTS-STARTPTS[a{idx}]");
+                    if (hasAudio)
+                        filterParts.Add($"[0:a]atrim=start={seg.InternalOffset.ToString("F3", CultureInfo.InvariantCulture)}:end={endOffset.ToString("F3", CultureInfo.InvariantCulture)},asetpts=PTS-STARTPTS[a{idx}]");
+                    else
+                        filterParts.Add($"anullsrc=channel_layout=stereo:sample_rate=44100,atrim=duration={seg.Duration.ToString("F3", CultureInfo.InvariantCulture)},asetpts=PTS-STARTPTS[a{idx}]");
                     concatInputs += $"[v{idx}][a{idx}]";
 
                     currentTime = seg.TimelineStart + seg.Duration;
@@ -99,8 +102,12 @@ namespace framework.Export
                 args.Add(settings.Bitrate + "k");
             }
 
-            args.Add("-preset");
-            args.Add(string.IsNullOrWhiteSpace(settings.Preset) ? "medium" : settings.Preset);
+            // VP9 (libvpx-vp9) does not support -preset; only H264/H265 do
+            if (settings.VideoCodec != VideoCodec.VP9)
+            {
+                args.Add("-preset");
+                args.Add(string.IsNullOrWhiteSpace(settings.Preset) ? "medium" : settings.Preset);
+            }
 
             if (settings.VideoCodec == VideoCodec.H264 || settings.VideoCodec == VideoCodec.H265)
             {

@@ -122,22 +122,21 @@
 
                 <!-- ===== 字卡設定頁 ===== -->
                 <TabItem Header="📝 字卡設定 (F1)" FontSize="14">
-                    <ScrollViewer VerticalScrollBarVisibility="Hidden">
-                        <StackPanel Margin="12">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="12,10,12,12">
 
-                            <TextBlock Text="🎬 字卡設定面板" FontWeight="Bold" FontSize="15"
-                                       Margin="0,0,0,12" Foreground="#1C1C1C"/>
-
-                            <!-- 字幕內容 -->
-                            <TextBlock Text="字幕內容：" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <TextBox Name="TxtSubtitle" Height="55" TextWrapping="Wrap"
-                                     AcceptsReturn="True" Margin="0,0,0,10"
-                                     Padding="6" FontSize="13"
+                            <!-- 字卡文字 -->
+                            <TextBlock Text="字卡文字" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtSubtitle" Height="58" TextWrapping="Wrap"
+                                     AcceptsReturn="True" Padding="6" FontSize="13"
+                                     Margin="0,0,0,12"
                                      VerticalScrollBarVisibility="Auto"/>
 
-                            <!-- 字體選擇 -->
-                            <TextBlock Text="字體（Font Family）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <ComboBox Name="ComboFontFamily" Margin="0,0,0,10"
+                            <Separator Margin="0,0,0,10"/>
+
+                            <!-- 字體 -->
+                            <TextBlock Text="字體" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <ComboBox Name="ComboFontFamily" Margin="0,0,0,7"
                                       SelectionChanged="StyleControl_Changed">
                                 <ComboBoxItem Content="微軟正黑體" IsSelected="True"/>
                                 <ComboBoxItem Content="新細明體"/>
@@ -147,278 +146,195 @@
                                 <ComboBoxItem Content="Consolas"/>
                             </ComboBox>
 
-                            <!-- 大小 & 粗細 -->
-                            <UniformGrid Columns="2" Margin="0,0,0,10">
-                                <StackPanel Margin="0,0,5,0">
-                                    <TextBlock Text="字體大小（Size）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                    <TextBox Name="TxtFontSize" Text="24" Padding="5"
-                                             TextChanged="StyleControl_TextChanged"/>
-                                </StackPanel>
-                                <StackPanel Margin="5,0,0,0">
-                                    <TextBlock Text="字體粗細（Weight）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                    <ComboBox Name="ComboFontWeight" SelectionChanged="StyleControl_Changed">
-                                        <ComboBoxItem Content="Normal" IsSelected="True"/>
-                                        <ComboBoxItem Content="Bold"/>
-                                        <ComboBoxItem Content="Light"/>
-                                        <ComboBoxItem Content="ExtraBold"/>
-                                    </ComboBox>
-                                </StackPanel>
-                            </UniformGrid>
+                            <!-- 大小 + 粗細 同行 -->
+                            <Grid Margin="0,0,0,7">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="58"/>
+                                    <ColumnDefinition Width="14"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="大小" FontSize="11" Foreground="Gray"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBox Name="TxtFontSize" Grid.Column="1" Text="24" Padding="5,3"
+                                         TextChanged="StyleControl_TextChanged"/>
+                                <TextBlock Grid.Column="3" Text="粗細" FontSize="11" Foreground="Gray"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <ComboBox Name="ComboFontWeight" Grid.Column="4"
+                                          SelectionChanged="StyleControl_Changed">
+                                    <ComboBoxItem Content="一般" IsSelected="True"/>
+                                    <ComboBoxItem Content="粗體"/>
+                                    <ComboBoxItem Content="細體"/>
+                                    <ComboBoxItem Content="特粗"/>
+                                </ComboBox>
+                            </Grid>
 
-                            <!-- 斜體 & 底線 -->
-                            <UniformGrid Columns="2" Margin="0,0,0,10">
-                                <CheckBox Name="ChkItalic" Content="斜體（Italic）"
-                                          VerticalAlignment="Center" Margin="0,0,5,0"
+                            <!-- 斜體 + 底線 -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <CheckBox Name="ChkItalic" Content="斜體"
+                                          VerticalAlignment="Center" Margin="0,0,20,0"
                                           Checked="StyleControl_CheckChanged" Unchecked="StyleControl_CheckChanged"/>
-                                <CheckBox Name="ChkUnderline" Content="底線（Underline）"
-                                          VerticalAlignment="Center" Margin="5,0,0,0"
+                                <CheckBox Name="ChkUnderline" Content="底線"
+                                          VerticalAlignment="Center"
                                           Checked="StyleControl_CheckChanged" Unchecked="StyleControl_CheckChanged"/>
-                            </UniformGrid>
+                            </StackPanel>
 
-                            <!-- ── 顏色區：2×2 色塊按鈕格 ── -->
-                            <TextBlock Text="顏色設定（點擊色塊開啟調色盤）："
-                                       FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <Separator Margin="0,0,0,10"/>
 
-                            <UniformGrid Columns="2" Margin="0,0,0,10" Rows="2">
+                            <!-- 顏色 -->
+                            <TextBlock Text="顏色  （點擊色塊開啟調色盤）" FontWeight="SemiBold" Margin="0,0,0,7"/>
+                            <UniformGrid Columns="2" Rows="2" Margin="0,0,0,7">
 
-                                <!-- 字體顏色 -->
-                                <StackPanel Margin="0,0,6,6">
-                                    <TextBlock Text="字體顏色" FontSize="11" Foreground="Gray" Margin="0,0,0,3"/>
-                                    <!-- 三層疊：棋盤格底層 / 顏色 Border（Window NameScope）/ 透明按鈕攔截點擊 -->
-                                    <Grid Height="36" Cursor="Hand">
+                                <StackPanel Margin="0,0,5,5">
+                                    <TextBlock Text="字體" FontSize="11" Foreground="Gray" Margin="0,0,0,3"/>
+                                    <Grid Height="30" Cursor="Hand">
                                         <Border CornerRadius="4" BorderBrush="#888" BorderThickness="1" ClipToBounds="True">
-                                            <Rectangle>
-                                                <Rectangle.Fill>
-                                                    <DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
-                                                        <DrawingBrush.Drawing>
-                                                            <DrawingGroup>
-                                                                <GeometryDrawing Brush="#CCCCCC">
-                                                                    <GeometryDrawing.Geometry>
-                                                                        <RectangleGeometry Rect="0,0,8,8"/>
-                                                                    </GeometryDrawing.Geometry>
-                                                                </GeometryDrawing>
-                                                                <GeometryDrawing Brush="#FFFFFF">
-                                                                    <GeometryDrawing.Geometry>
-                                                                        <GeometryGroup>
-                                                                            <RectangleGeometry Rect="0,0,4,4"/>
-                                                                            <RectangleGeometry Rect="4,4,4,4"/>
-                                                                        </GeometryGroup>
-                                                                    </GeometryDrawing.Geometry>
-                                                                </GeometryDrawing>
-                                                            </DrawingGroup>
-                                                        </DrawingBrush.Drawing>
-                                                    </DrawingBrush>
-                                                </Rectangle.Fill>
-                                            </Rectangle>
+                                            <Rectangle><Rectangle.Fill><DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute"><DrawingBrush.Drawing><DrawingGroup><GeometryDrawing Brush="#CCCCCC"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,8,8"/></GeometryDrawing.Geometry></GeometryDrawing><GeometryDrawing Brush="#FFFFFF"><GeometryDrawing.Geometry><GeometryGroup><RectangleGeometry Rect="0,0,4,4"/><RectangleGeometry Rect="4,4,4,4"/></GeometryGroup></GeometryDrawing.Geometry></GeometryDrawing></DrawingGroup></DrawingBrush.Drawing></DrawingBrush></Rectangle.Fill></Rectangle>
                                         </Border>
                                         <Border x:Name="FontColorSwatch" CornerRadius="4" BorderBrush="#888" BorderThickness="1" Background="White"/>
-                                        <Button Name="BtnPickFontColor" Background="Transparent" BorderBrush="Transparent" ToolTip="點擊開啟調色盤" Click="BtnPickFontColor_Click"/>
+                                        <Button Name="BtnPickFontColor" Background="Transparent" BorderBrush="Transparent" Click="BtnPickFontColor_Click"/>
                                     </Grid>
                                 </StackPanel>
 
-                                <!-- 陰影顏色 -->
-                                <StackPanel Margin="0,0,0,6">
-                                    <TextBlock Text="陰影顏色" FontSize="11" Foreground="Gray" Margin="0,0,0,3"/>
-                                    <Grid Height="36" Cursor="Hand">
+                                <StackPanel Margin="0,0,0,5">
+                                    <TextBlock Text="陰影" FontSize="11" Foreground="Gray" Margin="0,0,0,3"/>
+                                    <Grid Height="30" Cursor="Hand">
                                         <Border CornerRadius="4" BorderBrush="#888" BorderThickness="1" ClipToBounds="True">
-                                            <Rectangle>
-                                                <Rectangle.Fill>
-                                                    <DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
-                                                        <DrawingBrush.Drawing>
-                                                            <DrawingGroup>
-                                                                <GeometryDrawing Brush="#CCCCCC">
-                                                                    <GeometryDrawing.Geometry>
-                                                                        <RectangleGeometry Rect="0,0,8,8"/>
-                                                                    </GeometryDrawing.Geometry>
-                                                                </GeometryDrawing>
-                                                                <GeometryDrawing Brush="#FFFFFF">
-                                                                    <GeometryDrawing.Geometry>
-                                                                        <GeometryGroup>
-                                                                            <RectangleGeometry Rect="0,0,4,4"/>
-                                                                            <RectangleGeometry Rect="4,4,4,4"/>
-                                                                        </GeometryGroup>
-                                                                    </GeometryDrawing.Geometry>
-                                                                </GeometryDrawing>
-                                                            </DrawingGroup>
-                                                        </DrawingBrush.Drawing>
-                                                    </DrawingBrush>
-                                                </Rectangle.Fill>
-                                            </Rectangle>
+                                            <Rectangle><Rectangle.Fill><DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute"><DrawingBrush.Drawing><DrawingGroup><GeometryDrawing Brush="#CCCCCC"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,8,8"/></GeometryDrawing.Geometry></GeometryDrawing><GeometryDrawing Brush="#FFFFFF"><GeometryDrawing.Geometry><GeometryGroup><RectangleGeometry Rect="0,0,4,4"/><RectangleGeometry Rect="4,4,4,4"/></GeometryGroup></GeometryDrawing.Geometry></GeometryDrawing></DrawingGroup></DrawingBrush.Drawing></DrawingBrush></Rectangle.Fill></Rectangle>
                                         </Border>
                                         <Border x:Name="ShadowColorSwatch" CornerRadius="4" BorderBrush="#888" BorderThickness="1" Background="Black"/>
-                                        <Button Name="BtnPickShadowColor" Background="Transparent" BorderBrush="Transparent" ToolTip="點擊開啟調色盤" Click="BtnPickShadowColor_Click"/>
+                                        <Button Name="BtnPickShadowColor" Background="Transparent" BorderBrush="Transparent" Click="BtnPickShadowColor_Click"/>
                                     </Grid>
                                 </StackPanel>
 
-                                <!-- 外框顏色 -->
-                                <StackPanel Margin="0,0,6,0">
-                                    <TextBlock Text="外框顏色" FontSize="11" Foreground="Gray" Margin="0,0,0,3"/>
-                                    <Grid Height="36" Cursor="Hand">
+                                <StackPanel Margin="0,0,5,0">
+                                    <TextBlock Text="外框" FontSize="11" Foreground="Gray" Margin="0,0,0,3"/>
+                                    <Grid Height="30" Cursor="Hand">
                                         <Border CornerRadius="4" BorderBrush="#888" BorderThickness="1" ClipToBounds="True">
-                                            <Rectangle>
-                                                <Rectangle.Fill>
-                                                    <DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
-                                                        <DrawingBrush.Drawing>
-                                                            <DrawingGroup>
-                                                                <GeometryDrawing Brush="#CCCCCC">
-                                                                    <GeometryDrawing.Geometry>
-                                                                        <RectangleGeometry Rect="0,0,8,8"/>
-                                                                    </GeometryDrawing.Geometry>
-                                                                </GeometryDrawing>
-                                                                <GeometryDrawing Brush="#FFFFFF">
-                                                                    <GeometryDrawing.Geometry>
-                                                                        <GeometryGroup>
-                                                                            <RectangleGeometry Rect="0,0,4,4"/>
-                                                                            <RectangleGeometry Rect="4,4,4,4"/>
-                                                                        </GeometryGroup>
-                                                                    </GeometryDrawing.Geometry>
-                                                                </GeometryDrawing>
-                                                            </DrawingGroup>
-                                                        </DrawingBrush.Drawing>
-                                                    </DrawingBrush>
-                                                </Rectangle.Fill>
-                                            </Rectangle>
+                                            <Rectangle><Rectangle.Fill><DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute"><DrawingBrush.Drawing><DrawingGroup><GeometryDrawing Brush="#CCCCCC"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,8,8"/></GeometryDrawing.Geometry></GeometryDrawing><GeometryDrawing Brush="#FFFFFF"><GeometryDrawing.Geometry><GeometryGroup><RectangleGeometry Rect="0,0,4,4"/><RectangleGeometry Rect="4,4,4,4"/></GeometryGroup></GeometryDrawing.Geometry></GeometryDrawing></DrawingGroup></DrawingBrush.Drawing></DrawingBrush></Rectangle.Fill></Rectangle>
                                         </Border>
                                         <Border x:Name="BorderColorSwatch" CornerRadius="4" BorderBrush="#888" BorderThickness="1" Background="Black"/>
-                                        <Button Name="BtnPickBorderColor" Background="Transparent" BorderBrush="Transparent" ToolTip="點擊開啟調色盤" Click="BtnPickBorderColor_Click"/>
+                                        <Button Name="BtnPickBorderColor" Background="Transparent" BorderBrush="Transparent" Click="BtnPickBorderColor_Click"/>
                                     </Grid>
                                 </StackPanel>
 
-                                <!-- 背景顏色 -->
-                                <StackPanel Margin="0,0,0,0">
-                                    <TextBlock Text="背景顏色" FontSize="11" Foreground="Gray" Margin="0,0,0,3"/>
-                                    <Grid Height="36" Cursor="Hand">
+                                <StackPanel>
+                                    <TextBlock Text="背景" FontSize="11" Foreground="Gray" Margin="0,0,0,3"/>
+                                    <Grid Height="30" Cursor="Hand">
                                         <Border CornerRadius="4" BorderBrush="#888" BorderThickness="1" ClipToBounds="True">
-                                            <Rectangle>
-                                                <Rectangle.Fill>
-                                                    <DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute">
-                                                        <DrawingBrush.Drawing>
-                                                            <DrawingGroup>
-                                                                <GeometryDrawing Brush="#CCCCCC">
-                                                                    <GeometryDrawing.Geometry>
-                                                                        <RectangleGeometry Rect="0,0,8,8"/>
-                                                                    </GeometryDrawing.Geometry>
-                                                                </GeometryDrawing>
-                                                                <GeometryDrawing Brush="#FFFFFF">
-                                                                    <GeometryDrawing.Geometry>
-                                                                        <GeometryGroup>
-                                                                            <RectangleGeometry Rect="0,0,4,4"/>
-                                                                            <RectangleGeometry Rect="4,4,4,4"/>
-                                                                        </GeometryGroup>
-                                                                    </GeometryDrawing.Geometry>
-                                                                </GeometryDrawing>
-                                                            </DrawingGroup>
-                                                        </DrawingBrush.Drawing>
-                                                    </DrawingBrush>
-                                                </Rectangle.Fill>
-                                            </Rectangle>
+                                            <Rectangle><Rectangle.Fill><DrawingBrush TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute"><DrawingBrush.Drawing><DrawingGroup><GeometryDrawing Brush="#CCCCCC"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,8,8"/></GeometryDrawing.Geometry></GeometryDrawing><GeometryDrawing Brush="#FFFFFF"><GeometryDrawing.Geometry><GeometryGroup><RectangleGeometry Rect="0,0,4,4"/><RectangleGeometry Rect="4,4,4,4"/></GeometryGroup></GeometryDrawing.Geometry></GeometryDrawing></DrawingGroup></DrawingBrush.Drawing></DrawingBrush></Rectangle.Fill></Rectangle>
                                         </Border>
                                         <Border x:Name="BgColorSwatch" CornerRadius="4" BorderBrush="#888" BorderThickness="1" Background="Transparent"/>
-                                        <Button Name="BtnPickBgColor" Background="Transparent" BorderBrush="Transparent" ToolTip="點擊開啟調色盤（透明 = A 設為 0）" Click="BtnPickBgColor_Click"/>
+                                        <Button Name="BtnPickBgColor" Background="Transparent" BorderBrush="Transparent" ToolTip="透明 = A 設為 0" Click="BtnPickBgColor_Click"/>
                                     </Grid>
                                 </StackPanel>
 
                             </UniformGrid>
 
                             <!-- 外框寬度 -->
-                            <TextBlock Text="外框寬度（Border Width）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <Grid Margin="0,0,0,10">
+                            <Grid Margin="0,0,0,12">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="40"/>
+                                    <ColumnDefinition Width="28"/>
                                 </Grid.ColumnDefinitions>
-                                <Slider Name="SliderStroke" Minimum="0" Maximum="10" Value="0"
-                                        TickFrequency="1" IsSnapToTickEnabled="True"
-                                        VerticalAlignment="Center"
+                                <TextBlock Grid.Column="0" Text="外框寬度" FontSize="11" Foreground="Gray"
+                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <Slider Name="SliderStroke" Grid.Column="1" Minimum="0" Maximum="10" Value="0"
+                                        TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center"
                                         ValueChanged="StyleControl_SliderChanged"/>
-                                <TextBlock Grid.Column="1" Name="LblStrokeValue" Text="0"
+                                <TextBlock Grid.Column="2" Name="LblStrokeValue" Text="0"
                                            VerticalAlignment="Center" HorizontalAlignment="Center"
-                                           FontWeight="Bold"/>
+                                           FontWeight="Bold" FontSize="12"/>
                             </Grid>
 
-                            <!-- 位置設定 -->
-                            <TextBlock Text="字卡位置（Position）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <ComboBox Name="ComboPosition" Margin="0,0,0,10"
+                            <Separator Margin="0,0,0,10"/>
+
+                            <!-- 位置 -->
+                            <TextBlock Text="位置" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <ComboBox Name="ComboPosition" Margin="0,0,0,7"
                                       SelectionChanged="StyleControl_Changed">
-                                <ComboBoxItem Content="底部置中（Bottom Center）" IsSelected="True"/>
-                                <ComboBoxItem Content="頂部置中（Top Center）"/>
-                                <ComboBoxItem Content="中央置中（Middle Center）"/>
-                                <ComboBoxItem Content="底部靠左（Bottom Left）"/>
-                                <ComboBoxItem Content="底部靠右（Bottom Right）"/>
+                                <ComboBoxItem Content="底部置中" IsSelected="True"/>
+                                <ComboBoxItem Content="頂部置中"/>
+                                <ComboBoxItem Content="中央置中"/>
+                                <ComboBoxItem Content="底部靠左"/>
+                                <ComboBoxItem Content="底部靠右"/>
                             </ComboBox>
 
-                            <!-- 拖曳座標顯示 -->
-                            <UniformGrid Columns="2" Margin="0,4,0,10">
-                                <StackPanel Margin="0,0,5,0">
-                                    <TextBlock Text="X 座標（px）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                    <TextBox Name="TxtPosX" Text="0" Padding="5"
-                                             IsReadOnly="True" Background="#F0F0F0"
-                                             ToolTip="拖曳字卡後自動更新"/>
-                                </StackPanel>
-                                <StackPanel Margin="5,0,0,0">
-                                    <TextBlock Text="Y 座標（px）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                    <TextBox Name="TxtPosY" Text="0" Padding="5"
-                                             IsReadOnly="True" Background="#F0F0F0"
-                                             ToolTip="拖曳字卡後自動更新"/>
-                                </StackPanel>
-                            </UniformGrid>
+                            <!-- X / Y 座標 -->
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="X" FontSize="11" Foreground="Gray"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBox Name="TxtPosX" Grid.Column="1" Text="0" Padding="5,3"
+                                         IsReadOnly="True" Background="#F0F0F0" ToolTip="拖曳字卡後自動更新"/>
+                                <TextBlock Grid.Column="3" Text="Y" FontSize="11" Foreground="Gray"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBox Name="TxtPosY" Grid.Column="4" Text="0" Padding="5,3"
+                                         IsReadOnly="True" Background="#F0F0F0" ToolTip="拖曳字卡後自動更新"/>
+                            </Grid>
 
-                            <!-- 字卡時間設定 -->
-                            <Separator Margin="0,5,0,10"/>
-                            <TextBlock Text="⏱ 字卡時間設定" FontWeight="Bold" FontSize="13"
-                                       Margin="0,0,0,8"/>
+                            <Separator Margin="0,0,0,10"/>
 
-                            <UniformGrid Columns="2" Margin="0,0,0,10">
-                                <StackPanel Margin="0,0,5,0">
-                                    <TextBlock Text="開始時間（秒）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                    <TextBox Name="TxtSubStartTime" Text="0" Padding="5"/>
-                                </StackPanel>
-                                <StackPanel Margin="5,0,0,0">
-                                    <TextBlock Text="顯示時長（秒）：" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                    <TextBox Name="TxtSubDuration" Text="5" Padding="5"/>
-                                </StackPanel>
-                            </UniformGrid>
+                            <!-- 出現時間 -->
+                            <TextBlock Text="出現時間" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="開始" FontSize="11" Foreground="Gray"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBox Name="TxtSubStartTime" Grid.Column="1" Text="0" Padding="5,3"/>
+                                <TextBlock Grid.Column="3" Text="時長" FontSize="11" Foreground="Gray"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBox Name="TxtSubDuration" Grid.Column="4" Text="5" Padding="5,3"/>
+                            </Grid>
 
-                            <!-- 動作按鈕 -->
-                            <Separator Margin="0,5,0,10"/>
+                            <!-- 預覽縮圖 -->
+                            <Border Background="#111" CornerRadius="6" Height="68"
+                                    ClipToBounds="True" Margin="0,0,0,10">
+                                <Grid>
+                                    <TextBlock Text="字卡預覽" Foreground="#555" FontSize="11"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Border Name="MiniPreviewBorder" CornerRadius="3" Padding="8,3"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Name="TxtMiniPreview" Text="字卡預覽文字"
+                                                   Foreground="White" FontSize="14"
+                                                   FontFamily="Microsoft JhengHei"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+
+                            <!-- 操作按鈕 -->
+                            <Button Content="➕ 套用字卡至時間軸"
+                                    Padding="8,10" Background="#007ACC" Foreground="White"
+                                    BorderBrush="{x:Null}" Margin="0,0,0,6"
+                                    FontWeight="SemiBold" Click="BtnAddText_Click"/>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" Content="➕ 套用字卡至時間軸"
-                                        Padding="8,10" Background="#007ACC" Foreground="White"
-                                        BorderBrush="{x:Null}" Margin="0,0,5,0"
-                                        FontWeight="SemiBold"
-                                        Click="BtnAddText_Click"/>
-                                <Button Grid.Column="1" Content="💾 更新選取字卡樣式"
-                                        Padding="8,10" Background="#5A8A3E" Foreground="White"
-                                        BorderBrush="{x:Null}" Margin="5,0,0,0"
-                                        FontWeight="SemiBold"
-                                        Click="BtnUpdateStyle_Click"/>
+                                <Button Grid.Column="0" Content="💾 更新選取樣式"
+                                        Padding="8,8" Background="#5A8A3E" Foreground="White"
+                                        BorderBrush="{x:Null}" Margin="0,0,4,0"
+                                        FontWeight="SemiBold" Click="BtnUpdateStyle_Click"/>
+                                <Button Grid.Column="1" Content="👁 即時預覽"
+                                        Padding="8,8" Background="#5A3E8A" Foreground="White"
+                                        BorderBrush="{x:Null}" Margin="4,0,0,0"
+                                        FontWeight="SemiBold" Click="BtnPreviewSubtitle_Click"/>
                             </Grid>
-
-                            <Button Content="👁 即時預覽字卡效果"
-                                    Margin="0,8,0,0" Padding="8,10"
-                                    Background="#5A3E8A" Foreground="White"
-                                    BorderBrush="{x:Null}" FontWeight="SemiBold"
-                                    Click="BtnPreviewSubtitle_Click"/>
-
-                            <!-- 即時預覽縮圖 -->
-                            <Border Margin="0,12,0,0" Background="#111" CornerRadius="6"
-                                    Height="80" ClipToBounds="True">
-                                <Grid>
-                                    <TextBlock Text="字卡預覽" Foreground="#555"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               FontSize="12"/>
-                                    <Border Name="MiniPreviewBorder" CornerRadius="3" Padding="8,3"
-                                            HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock Name="TxtMiniPreview"
-                                                   Text="字卡預覽文字" Foreground="White"
-                                                   FontSize="14" FontFamily="Microsoft JhengHei"/>
-                                    </Border>
-                                </Grid>
-                            </Border>
 
                         </StackPanel>
                     </ScrollViewer>

@@ -102,11 +102,10 @@ namespace framework
         {
             try
             {
-                // 從 ComboBox 取得格式（移除描述部分）
-                string formatStr = (ComboFormat.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString() ?? "MP4";
-                formatStr = formatStr.Split(' ')[0]; // 取得第一部分（MP4、MKV 或 MOV）
+                string formatStr = RadioFormatMKV.IsChecked == true ? "MKV"
+                                : RadioFormatMOV.IsChecked == true ? "MOV"
+                                : "MP4";
 
-                // 使用 TryParse 進行安全轉換
                 if (Enum.TryParse(formatStr, out VideoFormat resultFormat))
                 {
                     SelectedFormat = resultFormat;
