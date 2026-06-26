@@ -9,7 +9,16 @@ namespace framework.Export
     {
         public static List<string> Build(string inputVideoPath, ExportSettings settings, bool hasAudio = true)
         {
+            bool hasExternalAudio = !string.IsNullOrEmpty(settings.ExternalAudioPath)
+                                    && settings.ExternalAudioSegments.Count > 0;
+
             var args = new List<string> { "-hide_banner", "-y", "-i", inputVideoPath };
+
+            if (hasExternalAudio)
+            {
+                args.Add("-i");
+                args.Add(settings.ExternalAudioPath!);
+            }
 
             bool hasMultipleSegments = settings.Segments != null && settings.Segments.Count > 0;
             string currentVideoLabel = "[0:v]"; // 預設輸入流
@@ -55,6 +64,16 @@ namespace framework.Export
                     currentAudioLabel = "[concata]";
                 }
 
+                // 混入外部音訊軌 2
+                if (hasExternalAudio)
+                {
+                    string extAudioLabel = BuildExternalAudioTimeline(
+                        filterParts, settings.ExternalAudioSegments,
+                        settings.DurationSeconds, extInputIndex: 1);
+                    filterParts.Add($"{currentAudioLabel}{extAudioLabel}amix=inputs=2:duration=longest:normalize=0[mixedaudio]");
+                    currentAudioLabel = "[mixedaudio]";
+                }
+
                 string vf = BuildVideoFilter(settings);
                 if (!string.IsNullOrWhiteSpace(vf))
                 {
@@ -67,7 +86,7 @@ namespace framework.Export
                 args.Add("-map");
                 args.Add(currentVideoLabel);
 
-                // ⭐ 4. 如果有合併聲音，才需要 map 聲音軌
+                // 如果有合併聲音，才需要 map 聲音軌
                 args.Add("-map");
                 args.Add(currentAudioLabel);
             }
@@ -82,7 +101,25 @@ namespace framework.Export
                 }
 
                 var videoFilter = BuildVideoFilter(settings);
-                if (!string.IsNullOrWhiteSpace(videoFilter))
+                if (hasExternalAudio)
+                {
+                    var filterParts = new List<string>();
+                    if (!string.IsNullOrWhiteSpace(videoFilter))
+                        filterParts.Add($"[0:v]{videoFilter}[finalv]");
+
+                    string extLabel = BuildExternalAudioTimeline(
+                        filterParts, settings.ExternalAudioSegments,
+                        settings.DurationSeconds, extInputIndex: 1);
+                    filterParts.Add($"[0:a]{extLabel}amix=inputs=2:duration=longest:normalize=0[mixedaudio]");
+
+                    args.Add("-filter_complex");
+                    args.Add(string.Join(";", filterParts));
+                    args.Add("-map");
+                    args.Add(string.IsNullOrWhiteSpace(videoFilter) ? "[0:v]" : "[finalv]");
+                    args.Add("-map");
+                    args.Add("[mixedaudio]");
+                }
+                else if (!string.IsNullOrWhiteSpace(videoFilter))
                 {
                     args.Add("-vf");
                     args.Add(videoFilter);
@@ -195,6 +232,58 @@ namespace framework.Export
         {
             var safeText = subtitleText.Replace("\r\n", " ").Replace("\n", " ").Replace("\"", "\\\"");
             return $"drawtext=font=Arial:text={safeText}:fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-60";
+        }
+
+        // 將外部音訊軌的分段清單轉成 filter_complex 片段，並回傳最終輸出標籤（如 "[extaudio]"）
+        private static string BuildExternalAudioTimeline(
+            List<string> filterParts,
+            List<AudioSegmentExportData> segments,
+            double totalDuration,
+            int extInputIndex)
+        {
+            if (segments.Count == 0)
+                return $"[{extInputIndex}:a]";
+
+            var sortedSegs = segments.OrderBy(s => s.TimelineStart).ToList();
+            var parts = new List<string>(); // concat 輸入標籤
+            double cursor = 0;
+            int pi = 0;
+
+            foreach (var seg in sortedSegs)
+            {
+                // 填補前方靜音
+                if (seg.TimelineStart > cursor + 0.01)
+                {
+                    double silDur = seg.TimelineStart - cursor;
+                    filterParts.Add($"anullsrc=channel_layout=stereo:sample_rate=44100," +
+                        $"atrim=duration={silDur.ToString("F3", CultureInfo.InvariantCulture)}," +
+                        $"asetpts=PTS-STARTPTS[extsil{pi}]");
+                    parts.Add($"[extsil{pi}]");
+                    pi++;
+                }
+
+                double end = seg.InternalOffset + seg.Duration;
+                filterParts.Add($"[{extInputIndex}:a]atrim=start={seg.InternalOffset.ToString("F3", CultureInfo.InvariantCulture)}:" +
+                    $"end={end.ToString("F3", CultureInfo.InvariantCulture)}," +
+                    $"asetpts=PTS-STARTPTS[extseg{pi}]");
+                parts.Add($"[extseg{pi}]");
+                pi++;
+                cursor = seg.TimelineStart + seg.Duration;
+            }
+
+            if (parts.Count == 1)
+            {
+                // 只有一段，加上靜音前綴讓它在正確時間點播放
+                filterParts.Add($"{parts[0]}apad=whole_dur={totalDuration.ToString("F3", CultureInfo.InvariantCulture)}[extaudio]");
+            }
+            else
+            {
+                // 多段 concat
+                filterParts.Add($"{string.Join("", parts)}concat=n={parts.Count}:v=0:a=1," +
+                    $"apad=whole_dur={totalDuration.ToString("F3", CultureInfo.InvariantCulture)}[extaudio]");
+            }
+
+            return "[extaudio]";
         }
     }
 }
