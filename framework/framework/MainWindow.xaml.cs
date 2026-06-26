@@ -253,9 +253,8 @@ namespace framework
         private Point          dragOffset;
         private bool           isDraggingOverlay    = false;
 
-        private MediaPlayer audioPreviewPlayer = new MediaPlayer();
-        private System.Windows.Threading.DispatcherTimer playheadTimer;
-        private System.Windows.Threading.DispatcherTimer autoScrollTimerInstance;
+        private System.Windows.Threading.DispatcherTimer playheadTimer = null!;
+        private System.Windows.Threading.DispatcherTimer autoScrollTimerInstance = null!;
         private const double PIXELS_PER_SECOND = 20;
         private DateTime lastTickTime = DateTime.Now;     // 用來計算現實中過了幾秒
         private double timelineCurrentSeconds = 0;        // 時間軸的虛擬時鐘 (紅線的真正位置)
@@ -278,8 +277,6 @@ namespace framework
 
         private List<VideoSegmentData>? preDragVideoOrder;
         private Dictionary<Guid, double>? preDragVideoStarts;
-        private List<AudioSegmentData>? preDragAudioOrder;
-        private Dictionary<Guid, double>? preDragAudioStarts;
         private double _resizeOldStart;
         private double _resizeOldDuration;
         private double _resizeOldOffset;
@@ -302,7 +299,7 @@ namespace framework
             public double TimelineStart  { get; set; }                   // 在時間軸上的起始秒數 (Canvas Left)
             public double InternalOffset { get; set; }                   // 影片內容的起始點 (從原始影片第幾秒開始撥)
             public double Duration       { get; set; }                   // 片段持續長度
-            public Grid   UIElement      { get; set; }                   // 對應的 UI 物件 (藍色框框)
+            public Grid?  UIElement      { get; set; }                   // 對應的 UI 物件 (藍色框框)
             public double TimelineStartSeconds
             {
                 get => TimelineStart; set => TimelineStart = value;
@@ -322,89 +319,11 @@ namespace framework
         public enum EditorTool { Select, Scissors }
         private EditorTool currentTool = EditorTool.Select;
 
-        // 音訊片段資料結構
-        public class AudioSegmentData : ITimelineTrackItem
-        {
-            public Guid Id { get; set; } = Guid.NewGuid(); // 唯一識別碼
-            public double TimelineStart { get; set; }      // 時間軸上的起始秒數
-            public double InternalOffset { get; set; }     // 音訊內容的起始點
-            public double Duration { get; set; }           // 片段長度
-            public Grid UIElement { get; set; }            // 對應的 UI 物件 (例如綠色或橘色方塊)
-
-            public double TimelineStartSeconds
-            {
-                get => TimelineStart; set => TimelineStart = value;
-            }
-            public double TimelineDurationSeconds
-            {
-                get => Duration; set => Duration = value;
-            }
-
-        }
-        // 在 private List<VideoSegmentData> videoSegments = new List<VideoSegmentData>(); 附近新增：
-        private List<AudioSegmentData> audioSegments = new List<AudioSegmentData>();
-        private AudioSegmentData? selectedAudioSegment = null;
-
-        private Grid CreateAudioSegmentUI(AudioSegmentData data)
-        {
-            Grid container = new Grid
-            {
-                Width = data.Duration * PIXELS_PER_SECOND,
-                Height = 35,
-                Tag = data,
-                Cursor = Cursors.SizeAll
-            };
-
-            var rect = new System.Windows.Shapes.Rectangle
-            {
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                Fill = new SolidColorBrush(Color.FromRgb(46, 139, 87)),
-                Stroke = new SolidColorBrush(Color.FromRgb(20, 60, 40)),
-                StrokeThickness = 1,
-                RadiusX = 3,
-                RadiusY = 3
-            };
-            container.Children.Add(rect);
-
-            var leftHandle = new Thumb
-            {
-                Width = 8,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Cursor = Cursors.Arrow,
-                Background = Brushes.White,
-                Opacity = 0,
-                IsHitTestVisible = false
-            };
-            leftHandle.DragDelta += UnifiedLeftHandle_DragDelta;
-            leftHandle.DragStarted += UnifiedHandle_DragStarted;
-            leftHandle.DragCompleted += UnifiedHandle_DragCompleted;
-
-            var rightHandle = new Thumb
-            {
-                Width = 8,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                Cursor = Cursors.Arrow,
-                Background = Brushes.White,
-                Opacity = 0,
-                IsHitTestVisible = false
-            };
-            rightHandle.DragDelta += UnifiedRightHandle_DragDelta;
-            rightHandle.DragStarted += UnifiedHandle_DragStarted;
-            rightHandle.DragCompleted += UnifiedHandle_DragCompleted;
-
-            container.Children.Add(leftHandle);
-            container.Children.Add(rightHandle);
-
-            // 綁定共用的拖曳事件 (後續拖曳邏輯需加入 AudioSegmentData 的判斷)
-            container.MouseDown += TrackItem_MouseDown;
-            container.MouseMove += TrackItem_MouseMove;
-            container.MouseLeftButtonUp += TrackItem_MouseUp;
-
-            Canvas.SetLeft(container, data.TimelineStart * PIXELS_PER_SECOND);
-            Canvas.SetTop(container, 0); // 根據你的 AudioTrackCanvas 調整 Top 值
-
-            return container;
-        }
+        // 矩形框選（右鍵拖曳）狀態
+        private bool isDrawingMarquee = false;
+        private Point marqueeStartPoint;
+        private System.Windows.Shapes.Rectangle? marqueeRect = null;
+        private List<ITimelineTrackItem> multiSelectedItems = new List<ITimelineTrackItem>();
 
         public MainWindow()
         {
@@ -413,15 +332,17 @@ namespace framework
 
             this.KeyDown += MainWindow_PreviewKeyDown;
            
-            VideoTrackCanvas.MouseDown    += (s, e) => ClearSelection();  // 點擊軌道空白處取消選取
+            VideoTrackCanvas.MouseDown    += (s, e) => ClearSelection();
             foreach (var c in SubtitleTrackCanvases) c.MouseDown += (s, e) => ClearSelection();
+            foreach (var c in AudioTrackCanvases)    c.MouseDown += (s, e) => ClearSelection();
 
             TimeRulerCanvas.Background     = Brushes.Transparent;
             VideoTrackCanvas.Background    = Brushes.Transparent;
 
-            // 時間軸拖曳（播放頭）— 原版邏輯，SubtitleTrackCanvases 取代單一 SubtitleTrackCanvas
+            // 時間軸拖曳（播放頭）
             foreach (var canvas in new Canvas[] { TimeRulerCanvas, VideoTrackCanvas }
-                         .Concat(SubtitleTrackCanvases).ToArray())
+                         .Concat(SubtitleTrackCanvases)
+                         .Concat(AudioTrackCanvases).ToArray())
             {
                 canvas.PreviewMouseLeftButtonDown += Timeline_MouseLeftButtonDown;
                 canvas.PreviewMouseMove           += Timeline_MouseMove;
@@ -475,7 +396,7 @@ namespace framework
             autoScrollTimerInstance.Tick += autoScrollTimerInstance_Tick;
         }
 
-        private void PlayheadTimer_Tick(object sender, EventArgs e)
+        private void PlayheadTimer_Tick(object? sender, EventArgs e)
         {
             if (VideoPlayer.Source == null) return;
 
@@ -486,10 +407,11 @@ namespace framework
 
             timelineCurrentSeconds += nowSeconds;
 
-            // 取得時間軸最大長度 (綜合影片與音軌)
-            double maxVideoEnd = videoSegments.Count > 0 ? videoSegments.Max(s => s.TimelineStartSeconds + s.TimelineDurationSeconds) : 0;
-            double maxAudioEnd = audioSegments.Count > 0 ? audioSegments.Max(s => s.TimelineStartSeconds + s.TimelineDurationSeconds) : 0;
-            double actualMaxEnd = Math.Max(maxVideoEnd, maxAudioEnd);
+            // 取得時間軸最大長度 (綜合影片與所有音軌)
+            double maxVideoEnd  = videoSegments.Count  > 0 ? videoSegments.Max(s => s.TimelineStartSeconds + s.TimelineDurationSeconds)  : 0;
+            double maxAudioEnd  = audioSegments.Count  > 0 ? audioSegments.Max(s => s.TimelineStartSeconds + s.TimelineDurationSeconds)  : 0;
+            double maxAudioEnd1 = audioSegments1.Count > 0 ? audioSegments1.Max(s => s.TimelineStartSeconds + s.TimelineDurationSeconds) : 0;
+            double actualMaxEnd = Math.Max(maxVideoEnd, Math.Max(maxAudioEnd, maxAudioEnd1));
 
             if (timelineCurrentSeconds >= actualMaxEnd && actualMaxEnd > 0)
             {
@@ -497,6 +419,7 @@ namespace framework
                 playheadTimer.Stop();
                 VideoPlayer.Pause();
                 audioPreviewPlayer.Pause();
+                audioPreviewPlayer1.Pause();
                 SyncVideoPlayerToTimeline(timelineCurrentSeconds);
                 SyncAudioPlayerToTimeline(timelineCurrentSeconds);
                 return;
@@ -539,7 +462,7 @@ namespace framework
             SyncAudioPlayerToTimeline(timelineCurrentSeconds); // 同步音軌
         }
 
-        private void autoScrollTimerInstance_Tick(object sender, EventArgs e)
+        private void autoScrollTimerInstance_Tick(object? sender, EventArgs e)
         {
             if (!isDraggingPlayhead) return;
 
@@ -601,6 +524,8 @@ namespace framework
                     if (wasPlayingBeforeDrag)
                     {
                         VideoPlayer.Pause();
+                        audioPreviewPlayer.Pause();
+                        audioPreviewPlayer1.Pause();
                         playheadTimer.Stop();
                     }
 
@@ -635,7 +560,10 @@ namespace framework
                 autoScrollTimerInstance.Stop();
                 if (wasPlayingBeforeDrag)
                 {
+                    SyncAudioPlayerToTimeline(timelineCurrentSeconds);
                     VideoPlayer.Play();
+                    audioPreviewPlayer.Play();
+                    audioPreviewPlayer1.Play();
                     playheadTimer.Start();
                 }
                 wasPlayingBeforeDrag = false;
@@ -649,9 +577,9 @@ namespace framework
             double maxMouseX = duration * PIXELS_PER_SECOND;
             double safeMouseX = Math.Max(0, Math.Min(mouseX, maxMouseX));
 
-            // 計算目標秒數後，直接呼叫我們的新方法
             double targetSeconds = safeMouseX / PIXELS_PER_SECOND;
             SyncVideoPlayerToTimeline(targetSeconds);
+            SyncAudioPlayerToTimeline(targetSeconds);
         }
         private void UpdateVideoVisibility(double currentTimelineSeconds)
         {
@@ -796,6 +724,11 @@ namespace framework
                         snapPoints.Add(seg.TimelineStartSeconds * PIXELS_PER_SECOND);
                         snapPoints.Add((seg.TimelineStartSeconds + seg.TimelineDurationSeconds) * PIXELS_PER_SECOND);
                     }
+                    foreach (var seg in audioSegments1)
+                    {
+                        snapPoints.Add(seg.TimelineStartSeconds * PIXELS_PER_SECOND);
+                        snapPoints.Add((seg.TimelineStartSeconds + seg.TimelineDurationSeconds) * PIXELS_PER_SECOND);
+                    }
                     double snappedX = timelineX, bestDist = double.MaxValue;
                     foreach (var sp in snapPoints)
                     {
@@ -811,6 +744,13 @@ namespace framework
                 }
             }
 
+            // ── 矩形框選模式（右鍵拖曳）──
+            if (currentTool == EditorTool.Select && isDrawingMarquee)
+            {
+                UpdateMarquee(e.GetPosition(TimelineContentStack));
+                return;
+            }
+
             // ── 即時預覽模式 ──
             if (isLivePreviewEnabled && !isDraggingTrackItem && !isDraggingPlayhead && timelineX >= 0)
             {
@@ -822,6 +762,7 @@ namespace framework
                     {
                         VideoPlayer.Pause();
                         audioPreviewPlayer.Pause();
+                        audioPreviewPlayer1.Pause();
                         playheadTimer.Stop();
                     }
                 }
@@ -843,11 +784,28 @@ namespace framework
                 {
                     VideoPlayer.Play();
                     audioPreviewPlayer.Play();
+                    audioPreviewPlayer1.Play();
                     lastTickTime = DateTime.Now;
                     playheadTimer.Start();
                     wasPlayingBeforeLivePreview = false;
                 }
             }
+        }
+
+        private void TimelineArea_MouseUp(object sender, MouseButtonEventArgs e)
+        {
+            if (currentTool == EditorTool.Select && isDrawingMarquee && e.ChangedButton == MouseButton.Right)
+            {
+                CompleteMarquee(e.GetPosition(TimelineContentStack));
+                ((UIElement)sender).ReleaseMouseCapture();
+                e.Handled = true;
+            }
+        }
+
+        private void TimelineArea_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            // 時間軸區域以右鍵拖曳作為矩形框選，不顯示右鍵選單
+            e.Handled = true;
         }
 
         private void PreviewVideoAtSeconds(double seconds)
@@ -882,6 +840,7 @@ namespace framework
                 {
                     VideoPlayer.Play();
                     audioPreviewPlayer.Play();
+                    audioPreviewPlayer1.Play();
                     lastTickTime = DateTime.Now;
                     playheadTimer.Start();
                     wasPlayingBeforeLivePreview = false;
@@ -893,7 +852,7 @@ namespace framework
         {
             if (sender is RadioButton rb && rb.Tag != null)
             {
-                string toolName = rb.Tag.ToString();
+                string toolName = rb.Tag.ToString() ?? string.Empty;
                 if (toolName == "Select")
                     SetEditorTool(EditorTool.Select);
                 else if (toolName == "Scissors")
@@ -921,6 +880,7 @@ namespace framework
                 double w = dur * PIXELS_PER_SECOND + 100;
                 TimeRulerCanvas.Width      = w;
                 VideoTrackCanvas.Width     = w;
+                foreach (var c in AudioTrackCanvases) c.Width = w;
                 foreach (var c in SubtitleTrackCanvases) c.Width = w;
                 TimelineContentStack.Width = w;
 
@@ -980,6 +940,14 @@ namespace framework
                         s.TimelineDurationSeconds
                     ))
                     .ToList();
+                var extAudioSegs = audioSegments1
+                    .OrderBy(s => s.TimelineStartSeconds)
+                    .Select(s => new AudioSegmentExportData(
+                        s.TimelineStartSeconds,
+                        s.InternalOffset,
+                        s.TimelineDurationSeconds))
+                    .ToList();
+
                 var settings = new ExportSettings
                 {
                     Format = exportWin.SelectedFormat,
@@ -995,7 +963,9 @@ namespace framework
                     TrimEndSeconds = trimEndSeconds,
                     DurationSeconds = currentVideoDuration,
                     SubtitleText = subtitleText,
-                    Segments = segmentsToExport
+                    Segments = segmentsToExport,
+                    ExternalAudioPath = currentExternalAudioPath,
+                    ExternalAudioSegments = extAudioSegs
                 };
 
                 if (!AskSaveExportPath(settings)) return;
@@ -1025,6 +995,11 @@ namespace framework
                                 timelineCurrentSeconds < s.TimelineStartSeconds + s.TimelineDurationSeconds);
             if (currentAudio != null) audioPreviewPlayer.Play();
 
+            var currentAudio1 = audioSegments1.FirstOrDefault(s =>
+                                timelineCurrentSeconds >= s.TimelineStartSeconds &&
+                                timelineCurrentSeconds < s.TimelineStartSeconds + s.TimelineDurationSeconds);
+            if (currentAudio1 != null) audioPreviewPlayer1.Play();
+
             playheadTimer.Start();
         }
 
@@ -1033,6 +1008,7 @@ namespace framework
             VideoPlayer.Pause();
             playheadTimer.Stop();
             audioPreviewPlayer.Pause();
+            audioPreviewPlayer1.Pause();
         }
 
         // ══════════════════════════════════════
@@ -1269,28 +1245,6 @@ namespace framework
                 bool active = currentTimeSec >= kv.Key.StartSeconds &&
                               currentTimeSec <  kv.Key.StartSeconds + kv.Key.DurationSeconds;
                 kv.Value.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
-            }
-        }
-        private void SyncAudioPlayerToTimeline(double tlSeconds)
-        {
-            var currentAudio = audioSegments.FirstOrDefault(a =>
-                tlSeconds >= a.TimelineStartSeconds &&
-                tlSeconds < a.TimelineStartSeconds + a.TimelineDurationSeconds);
-
-            if (currentAudio != null)
-            {
-                double expectedAudioPos = currentAudio.InternalOffset + (tlSeconds - currentAudio.TimelineStartSeconds);
-
-                if (Math.Abs(audioPreviewPlayer.Position.TotalSeconds - expectedAudioPos) > 0.2)
-                {
-                    audioPreviewPlayer.Position = TimeSpan.FromSeconds(expectedAudioPos);
-                }
-
-                if (playheadTimer.IsEnabled) audioPreviewPlayer.Play();
-            }
-            else
-            {
-                audioPreviewPlayer.Pause();
             }
         }
         private void RebuildOverlayCards()
@@ -1601,18 +1555,19 @@ namespace framework
         {
             double totalWidth = durationInSeconds * PIXELS_PER_SECOND;
 
-            // 1. 初始化所有畫布與寬度 (加入 AudioTrackCanvas)
-            VideoTrackCanvas.Width = totalWidth + 100;
-            AudioTrackCanvas.Width = totalWidth + 100; // 新增：音訊畫布寬度同步
-            foreach (var c in SubtitleTrackCanvases) c.Width = totalWidth + 100;
-            TimeRulerCanvas.Width = totalWidth + 100;
-            TimelineContentStack.Width = totalWidth + 100;
+            // 初始化所有畫布與寬度
+            double canvasW = totalWidth + 100;
+            VideoTrackCanvas.Width     = canvasW;
+            foreach (var c in AudioTrackCanvases) c.Width = canvasW;
+            foreach (var c in SubtitleTrackCanvases) c.Width = canvasW;
+            TimeRulerCanvas.Width      = canvasW;
+            TimelineContentStack.Width = canvasW;
 
-            // 清空舊畫布與舊資料
+            // 清空舊畫布與舊資料（音訊軌 1 不清除，保留外部音訊）
             VideoTrackCanvas.Children.Clear();
-            AudioTrackCanvas.Children.Clear(); // 新增：清空獨立音軌畫布
+            AudioTrackCanvas.Children.Clear();
             videoSegments.Clear();
-            audioSegments.Clear();             // 新增：清空音訊資料清單
+            audioSegments.Clear();
 
             // 2. 建立並配置「影像片段」
             var newVideoSegment = new VideoSegmentData
@@ -1709,7 +1664,19 @@ namespace framework
             return container;
         }
         // 處理左側拖動：非破壞性，只移動標記，可以隨時還原       
-        private void VideoTrackCanvas_MouseDown(object sender, MouseButtonEventArgs e) => ClearSelection();
+        private void VideoTrackCanvas_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            // 右鍵拖曳（選取模式）：啟動矩形框選
+            if (currentTool == EditorTool.Select && e.ChangedButton == MouseButton.Right)
+            {
+                StartMarquee(e.GetPosition(TimelineContentStack));
+                ((UIElement)sender).CaptureMouse();
+                e.Handled = true;
+                return;
+            }
+            if (e.ChangedButton == MouseButton.Left)
+                ClearSelection();
+        }
         private void SplitSegment(VideoSegmentData segment, double splitPointSeconds)
         {
             // 【新增】：防呆保護。確保切割點在片段中間，左右至少保留 0.5 秒的長度
@@ -1735,30 +1702,106 @@ namespace framework
             // 影片跳轉保持在指令外部執行，因為這屬於播放器即時預覽行為，不需納入 Undo 歷史
             VideoPlayer.Position = TimeSpan.FromSeconds(splitPointSeconds);
         }
-        private void SplitAudioSegment(AudioSegmentData segment, double splitPointSeconds)
+        // ─── 矩形框選輔助方法（右鍵拖曳）─────────────────────────────────────────
+
+        private void StartMarquee(Point startPoint)
         {
-            if (splitPointSeconds <= segment.TimelineStart + 0.5 ||
-                splitPointSeconds >= segment.TimelineStart + segment.Duration - 0.5)
+            isDrawingMarquee  = true;
+            marqueeStartPoint = startPoint;
+            MarqueeCanvas.Children.Clear();
+            marqueeRect = new System.Windows.Shapes.Rectangle
             {
-                MessageBox.Show("切割點太靠近邊緣，請選擇片段中間的位置下刀！", "提示");
-                return;
-            }
-            var cmd = new SplitAudioCommand(
-                audioSegments,
-                AudioTrackCanvas,
-                segment,
-                splitPointSeconds,
-                PIXELS_PER_SECOND,
-                CreateAudioSegmentUI, // 傳遞產生音訊 UI 的方法
-                ClearSelection        // 傳遞清除選取框的方法
-            );
-
-            // 交由歷史紀錄管理員執行
-            commandHistory.ExecuteCommand(cmd);
-
-            // 音訊跳轉保持在指令外部執行 (即時預覽行為)
-            audioPreviewPlayer.Position = TimeSpan.FromSeconds(splitPointSeconds);
+                Stroke           = new SolidColorBrush(Color.FromRgb(0, 220, 255)),
+                StrokeThickness  = 1.5,
+                StrokeDashArray  = new DoubleCollection { 5, 3 },
+                Fill             = new SolidColorBrush(Color.FromArgb(25, 0, 200, 255)),
+                IsHitTestVisible = false
+            };
+            MarqueeCanvas.Children.Add(marqueeRect);
         }
+
+        private void UpdateMarquee(Point currentPoint)
+        {
+            if (marqueeRect == null) return;
+            double x = Math.Min(marqueeStartPoint.X, currentPoint.X);
+            double y = Math.Min(marqueeStartPoint.Y, currentPoint.Y);
+            double w = Math.Abs(currentPoint.X - marqueeStartPoint.X);
+            double h = Math.Abs(currentPoint.Y - marqueeStartPoint.Y);
+            Canvas.SetLeft(marqueeRect, x);
+            Canvas.SetTop(marqueeRect,  y);
+            marqueeRect.Width  = w;
+            marqueeRect.Height = h;
+        }
+
+        private void CompleteMarquee(Point endPoint)
+        {
+            isDrawingMarquee = false;
+            MarqueeCanvas.Children.Clear();
+            marqueeRect = null;
+
+            double x1 = Math.Min(marqueeStartPoint.X, endPoint.X);
+            double y1 = Math.Min(marqueeStartPoint.Y, endPoint.Y);
+            double x2 = Math.Max(marqueeStartPoint.X, endPoint.X);
+            double y2 = Math.Max(marqueeStartPoint.Y, endPoint.Y);
+            if (x2 - x1 < 3 || y2 - y1 < 3) return; // 太小視為誤觸，忽略
+
+            var selectionRect = new Rect(x1, y1, x2 - x1, y2 - y1);
+
+            ClearSelection(); // 同時清除 multiSelectedItems（見 ClearSelection 內部）
+
+            CheckCanvasForMarquee(VideoTrackCanvas, selectionRect);
+            foreach (var canvas in AudioTrackCanvases)
+                CheckCanvasForMarquee(canvas, selectionRect);
+            foreach (var canvas in SubtitleTrackCanvases)
+                CheckCanvasForMarquee(canvas, selectionRect);
+        }
+
+        private void CheckCanvasForMarquee(Canvas trackCanvas, Rect selectionRect)
+        {
+            foreach (UIElement child in trackCanvas.Children)
+            {
+                if (child is not Grid grid || grid.Tag is not ITimelineTrackItem item) continue;
+                try
+                {
+                    var transform = grid.TransformToVisual(TimelineContentStack);
+                    double w = grid.ActualWidth  > 0 ? grid.ActualWidth  : grid.Width;
+                    double h = grid.ActualHeight > 0 ? grid.ActualHeight : grid.Height;
+                    var itemRect = new Rect(transform.Transform(new Point(0, 0)), new Size(w, h));
+                    if (selectionRect.IntersectsWith(itemRect))
+                    {
+                        multiSelectedItems.Add(item);
+                        HighlightForMultiSelect(grid, trackCanvas);
+                    }
+                }
+                catch { }
+            }
+        }
+
+        private void HighlightForMultiSelect(Grid grid, Canvas trackCanvas)
+        {
+            if (SubtitleTrackCanvases.Contains(trackCanvas))
+            {
+                foreach (UIElement inner in grid.Children)
+                    if (inner is Border b)
+                    {
+                        b.BorderBrush     = new SolidColorBrush(Color.FromRgb(0, 220, 255));
+                        b.BorderThickness = new Thickness(2);
+                    }
+            }
+            else
+            {
+                var rect = grid.Children.OfType<System.Windows.Shapes.Rectangle>().FirstOrDefault();
+                if (rect != null)
+                {
+                    rect.Stroke          = new SolidColorBrush(Color.FromRgb(0, 220, 255));
+                    rect.StrokeThickness = 2;
+                }
+                // 矩形框選後不啟用 Thumb 互動，避免選取完成仍停留在選取模式時誤觸邊緣調整控制點
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+
         private void ClearSelection()
         {
             Keyboard.ClearFocus();
@@ -1766,6 +1809,7 @@ namespace framework
             selectedSubtitleCard = null;
             selectedSegment = null;
             selectedAudioSegment = null;
+            multiSelectedItems.Clear();
 
             foreach (var child in VideoTrackCanvas.Children)
             {
@@ -1787,22 +1831,27 @@ namespace framework
                     }
                 }
             }
-            foreach (var child in AudioTrackCanvas.Children)
+            // 重置所有音訊軌道的選取狀態
+            Color[] audioStrokeColors = { Color.FromRgb(20, 60, 40), Color.FromRgb(90, 50, 15) };
+            for (int ai = 0; ai < AudioTrackCanvases.Length; ai++)
             {
-                if (child is Grid grid)
+                foreach (var child in AudioTrackCanvases[ai].Children)
                 {
-                    foreach (var inner in grid.Children)
+                    if (child is Grid grid)
                     {
-                        if (inner is System.Windows.Shapes.Rectangle r)
+                        foreach (var inner in grid.Children)
                         {
-                            r.Stroke = new SolidColorBrush(Color.FromRgb(20, 60, 40));
-                            r.StrokeThickness = 1;
-                        }
-                        if (inner is Thumb t)
-                        {
-                            t.Opacity = 0;
-                            t.Cursor = Cursors.Arrow; // 恢復一般游標
-                            t.IsHitTestVisible = false; // 關閉互動
+                            if (inner is System.Windows.Shapes.Rectangle r)
+                            {
+                                r.Stroke = new SolidColorBrush(audioStrokeColors[ai]);
+                                r.StrokeThickness = 1;
+                            }
+                            if (inner is Thumb t)
+                            {
+                                t.Opacity = 0;
+                                t.Cursor = Cursors.Arrow;
+                                t.IsHitTestVisible = false;
+                            }
                         }
                     }
                 }
@@ -1863,6 +1912,43 @@ namespace framework
         }
         private void BtnDelete_Click(object sender, RoutedEventArgs e)
         {
+            // 套索多重選取刪除
+            if (multiSelectedItems.Count > 0)
+            {
+                var toDelete = new List<ITimelineTrackItem>(multiSelectedItems);
+                multiSelectedItems.Clear(); // 提前清除，避免 DeleteVideoSegmentCommand 回呼 ClearSelection 時再次干擾
+                foreach (var item in toDelete)
+                {
+                    if (item is VideoSegmentData vs)
+                    {
+                        var cmd = new DeleteVideoSegmentCommand(videoSegments, VideoTrackCanvas, vs, ClearSelection);
+                        commandHistory.ExecuteCommand(cmd);
+                    }
+                    else if (item is AudioSegmentData asd)
+                    {
+                        var cmd = new DeleteAudioSegmentCommand(
+                            GetAudioSegments(asd.TrackIndex),
+                            AudioTrackCanvases[asd.TrackIndex],
+                            asd, ClearSelection);
+                        commandHistory.ExecuteCommand(cmd);
+                    }
+                    else if (item is SubtitleStyle sub)
+                    {
+                        int idx = subtitleList.IndexOf(sub);
+                        if (idx >= 0)
+                        {
+                            var cmd = new DeleteSubtitleCommand(subtitleList, sub, idx, () => {
+                                selectedSubtitleCard = null;
+                                RedrawSubtitleCards();
+                                RebuildOverlayCards();
+                            });
+                            commandHistory.ExecuteCommand(cmd);
+                        }
+                    }
+                }
+                return;
+            }
+
             if (selectedSubtitleCard != null)
             {
                 if (selectedSubtitleCard.Tag is SubtitleStyle s)
@@ -1888,7 +1974,10 @@ namespace framework
 
             if (selectedAudioSegment != null)
             {
-                var cmd = new DeleteAudioSegmentCommand(audioSegments, AudioTrackCanvas, selectedAudioSegment, ClearSelection);
+                var cmd = new DeleteAudioSegmentCommand(
+                    GetAudioSegments(selectedAudioSegment.TrackIndex),
+                    AudioTrackCanvases[selectedAudioSegment.TrackIndex],
+                    selectedAudioSegment, ClearSelection);
                 commandHistory.ExecuteCommand(cmd);
                 selectedAudioSegment = null;
                 return;
@@ -1905,12 +1994,14 @@ namespace framework
             {
                 commandHistory.Clear();
                 VideoTrackCanvas.Children.Clear();
-                AudioTrackCanvas.Children.Clear();
+                foreach (var c in AudioTrackCanvases) c.Children.Clear();
                 foreach (var c in SubtitleTrackCanvases) c.Children.Clear();
                 subtitleList.Clear();
                 videoSegments.Clear();
                 audioSegments.Clear();
+                audioSegments1.Clear();
                 currentVideoPath = "";
+                currentExternalAudioPath = null;
                 currentVideoDuration = 0;
                 timelineOffsetX = 0;
                 timelineTransform.X = 0;
@@ -1918,6 +2009,8 @@ namespace framework
                 VideoPlayer.Source = null;
                 audioPreviewPlayer.Stop();
                 audioPreviewPlayer.Close();
+                audioPreviewPlayer1.Stop();
+                audioPreviewPlayer1.Close();
                 playheadTimer.Stop();
                 PlayheadLine.Visibility = Visibility.Collapsed;
                 SubtitleOverlayCanvas.Children.Clear();
@@ -2197,6 +2290,9 @@ namespace framework
         {
             if (sender is not Grid container || container.Tag is not ITimelineTrackItem itemData) return;
 
+            // 右鍵在選取模式下：讓事件冒泡到外層 StackPanel 以啟動矩形框選
+            if (currentTool == EditorTool.Select && e.ChangedButton == MouseButton.Right) return;
+
             if (currentTool == EditorTool.Scissors)
             {
                 if (itemData is VideoSegmentData videoSegment)
@@ -2208,8 +2304,8 @@ namespace framework
                 }
                 else if (itemData is AudioSegmentData audioSegment)
                 {
-                    // 注意這裡改成抓取 AudioTrackCanvas 的游標座標
-                    double clickX = e.GetPosition(AudioTrackCanvas).X;
+                    var audioCanvas = AudioTrackCanvases[audioSegment.TrackIndex];
+                    double clickX = e.GetPosition(audioCanvas).X;
                     SplitAudioSegment(audioSegment, clickX / PIXELS_PER_SECOND);
                     e.Handled = true;
                     return;
@@ -2223,6 +2319,7 @@ namespace framework
             {
                 VideoPlayer.Pause();
                 audioPreviewPlayer.Pause();
+                audioPreviewPlayer1.Pause();
                 playheadTimer.Stop();
             }
 
@@ -2237,10 +2334,11 @@ namespace framework
                 preDragVideoOrder  = new List<VideoSegmentData>(videoSegments);
                 preDragVideoStarts = videoSegments.ToDictionary(s => s.Id, s => s.TimelineStartSeconds);
             }
-            else if (itemData is AudioSegmentData)
+            else if (itemData is AudioSegmentData dragAud)
             {
-                preDragAudioOrder = new List<AudioSegmentData>(audioSegments);
-                preDragAudioStarts = audioSegments.ToDictionary(s => s.Id, s => s.TimelineStartSeconds);
+                var dragSegs = GetAudioSegments(dragAud.TrackIndex);
+                preDragAudioOrder  = new List<AudioSegmentData>(dragSegs);
+                preDragAudioStarts = dragSegs.ToDictionary(s => s.Id, s => s.TimelineStartSeconds);
             }
             else if (itemData is SubtitleStyle sub0)
             {
@@ -2314,6 +2412,12 @@ namespace framework
                 snapPoints.Add(seg.TimelineStartSeconds * PIXELS_PER_SECOND);
                 snapPoints.Add((seg.TimelineStartSeconds + seg.TimelineDurationSeconds) * PIXELS_PER_SECOND);
             }
+            foreach (var seg in audioSegments1)
+            {
+                if (draggedTrackItemData is AudioSegmentData a1 && a1.Id == seg.Id) continue;
+                snapPoints.Add(seg.TimelineStartSeconds * PIXELS_PER_SECOND);
+                snapPoints.Add((seg.TimelineStartSeconds + seg.TimelineDurationSeconds) * PIXELS_PER_SECOND);
+            }
 
             double bestDelta = double.MaxValue;
             double bestLeft  = newLeft;
@@ -2345,10 +2449,11 @@ namespace framework
             double delta = e.GetPosition(this).X - trackDragStartMouseX;
             double newLeft = trackDragStartLeft + delta;
 
-            // 取得畫布的最大寬度 (綜合影片與音軌的最遠距離)
-            double maxVideoEnd = videoSegments.Count > 0 ? videoSegments.Max(s => s.TimelineStartSeconds + s.Duration) : 0;
-            double maxAudioEnd = audioSegments.Count > 0 ? audioSegments.Max(s => s.TimelineStartSeconds + s.Duration) : 0;
-            double maxEnd = Math.Max(currentVideoDuration, Math.Max(maxVideoEnd, maxAudioEnd));
+            // 取得畫布的最大寬度 (綜合影片與所有音軌的最遠距離)
+            double maxVideoEnd  = videoSegments.Count  > 0 ? videoSegments.Max(s => s.TimelineStartSeconds + s.Duration)  : 0;
+            double maxAudioEnd  = audioSegments.Count  > 0 ? audioSegments.Max(s => s.TimelineStartSeconds + s.Duration)  : 0;
+            double maxAudioEnd1 = audioSegments1.Count > 0 ? audioSegments1.Max(s => s.TimelineStartSeconds + s.Duration) : 0;
+            double maxEnd = Math.Max(currentVideoDuration, Math.Max(maxVideoEnd, Math.Max(maxAudioEnd, maxAudioEnd1)));
 
             double minLeft = 0;
             double maxLeft = maxEnd * PIXELS_PER_SECOND;
@@ -2406,6 +2511,7 @@ namespace framework
                 {
                     VideoPlayer.Play();
                     audioPreviewPlayer.Play();
+                    audioPreviewPlayer1.Play();
                     lastTickTime = DateTime.Now;
                     playheadTimer.Start();
                     wasPlayingBeforeLivePreview = false;
@@ -2431,15 +2537,16 @@ namespace framework
                         commandHistory.ExecuteCommand(cmd);
                     }
                 }
-                else if (draggedTrackItemData is AudioSegmentData)
+                else if (draggedTrackItemData is AudioSegmentData movedAud)
                 {
                     ResolveAudioOverlaps();
                     SyncAudioPlayerToTimeline(newStartSeconds);
                     if (preDragAudioOrder != null && preDragAudioStarts != null)
                     {
-                        var postOrder = new List<AudioSegmentData>(audioSegments);
-                        var postStarts = audioSegments.ToDictionary(s => s.Id, s => s.TimelineStartSeconds);
-                        var cmd = new MoveAudioTrackCommand(audioSegments, preDragAudioOrder, preDragAudioStarts, postOrder, postStarts, RefreshAudioTrackUI);
+                        var segs = GetAudioSegments(movedAud.TrackIndex);
+                        var postOrder  = new List<AudioSegmentData>(segs);
+                        var postStarts = segs.ToDictionary(s => s.Id, s => s.TimelineStartSeconds);
+                        var cmd = new MoveAudioTrackCommand(segs, preDragAudioOrder, preDragAudioStarts, postOrder, postStarts, RefreshAudioTrackUI);
                         commandHistory.ExecuteCommand(cmd);
                     }
                 }
@@ -2495,6 +2602,7 @@ namespace framework
 
                 VideoPlayer.Play();
                 audioPreviewPlayer.Play();
+                audioPreviewPlayer1.Play();
 
                 lastTickTime = DateTime.Now;
                 playheadTimer.Start();
@@ -2526,6 +2634,7 @@ namespace framework
                 if (newWidth > VideoTrackCanvas.Width)
                 {
                     VideoTrackCanvas.Width = newWidth;
+                    foreach (var c in AudioTrackCanvases) c.Width = newWidth;
                     foreach (var c in SubtitleTrackCanvases) c.Width = newWidth;
                     TimeRulerCanvas.Width = newWidth;
                     TimelineContentStack.Width = newWidth;
@@ -2537,60 +2646,6 @@ namespace framework
             {
                 TxtStartTime.Text = selectedSegment.TimelineStartSeconds.ToString("F1");
                 TxtEndTime.Text = (selectedSegment.TimelineStartSeconds + selectedSegment.TimelineDurationSeconds).ToString("F1");
-            }
-        }
-        private void ResolveAudioOverlaps()
-        {
-            audioSegments = audioSegments.OrderBy(s => s.TimelineStartSeconds + (s.TimelineDurationSeconds / 2.0)).ToList();
-
-            double nextValidStartSec = 0;
-            foreach (var seg in audioSegments)
-            {
-                if (seg.TimelineStartSeconds < nextValidStartSec)
-                {
-                    seg.TimelineStartSeconds = nextValidStartSec;
-                    if (seg.UIElement != null)
-                    {
-                        Canvas.SetLeft(seg.UIElement, seg.TimelineStartSeconds * PIXELS_PER_SECOND);
-                    }
-                }
-                nextValidStartSec = seg.TimelineStartSeconds + seg.TimelineDurationSeconds;
-            }
-
-            double maxEndSeconds = nextValidStartSec;
-            if (maxEndSeconds > currentVideoDuration)
-            {
-                double newWidth = maxEndSeconds * PIXELS_PER_SECOND + 200;
-                if (newWidth > AudioTrackCanvas.Width)
-                {
-                    VideoTrackCanvas.Width = newWidth;
-                    AudioTrackCanvas.Width = newWidth;
-                    foreach (var c in SubtitleTrackCanvases) c.Width = newWidth;
-                    TimeRulerCanvas.Width = newWidth;
-                    TimelineContentStack.Width = newWidth;
-                    DrawTimeRuler(maxEndSeconds);
-                }
-            }
-
-            if (selectedAudioSegment != null)
-            {
-                TxtStartTime.Text = selectedAudioSegment.TimelineStartSeconds.ToString("F1");
-                TxtEndTime.Text = (selectedAudioSegment.TimelineStartSeconds + selectedAudioSegment.TimelineDurationSeconds).ToString("F1");
-            }
-        }
-        public void RefreshAudioTrackUI()
-        {
-            foreach (var seg in audioSegments)
-                if (seg.UIElement != null)
-                {
-                    Canvas.SetLeft(seg.UIElement, seg.TimelineStartSeconds * PIXELS_PER_SECOND);
-                    seg.UIElement.Width = Math.Max(10, seg.TimelineDurationSeconds * PIXELS_PER_SECOND);
-                }
-
-            if (selectedAudioSegment != null)
-            {
-                TxtStartTime.Text = selectedAudioSegment.TimelineStartSeconds.ToString("F1");
-                TxtEndTime.Text = (selectedAudioSegment.TimelineStartSeconds + selectedAudioSegment.TimelineDurationSeconds).ToString("F1");
             }
         }
         private void ResolveSubtitleOverlaps()
@@ -2618,7 +2673,7 @@ namespace framework
                 if (newWidth > VideoTrackCanvas.Width)
                 {
                     VideoTrackCanvas.Width     = newWidth;
-                    AudioTrackCanvas.Width     = newWidth;
+                    foreach (var c in AudioTrackCanvases) c.Width = newWidth;
                     foreach (var c in SubtitleTrackCanvases) c.Width = newWidth;
                     TimeRulerCanvas.Width      = newWidth;
                     TimelineContentStack.Width = newWidth;
@@ -2823,6 +2878,7 @@ namespace framework
         {
             VideoPlayer.Pause();
             audioPreviewPlayer.Pause();
+            audioPreviewPlayer1.Pause();
             playheadTimer.Stop();
 
             if (sender is not Thumb thumb || thumb.Parent is not Grid container) return;
@@ -3043,7 +3099,7 @@ namespace framework
         private List<MainWindow.VideoSegmentData> _videoSegments;
         private Canvas _videoTrackCanvas;
         private MainWindow.VideoSegmentData _originalSegment;
-        private MainWindow.VideoSegmentData _newSegment;
+        private MainWindow.VideoSegmentData _newSegment = null!; // 於 Execute() 首次賦值，Undo 必在 Execute 之後呼叫
 
         private double _originalDuration;
         private double _splitPointSeconds;
@@ -3123,7 +3179,7 @@ namespace framework
         private List<AudioSegmentData> _audioSegments;
         private Canvas _audioTrackCanvas;
         private AudioSegmentData _originalSegment;
-        private AudioSegmentData _newSegment;
+        private AudioSegmentData _newSegment = null!; // 於 Execute() 首次賦值，Undo 必在 Execute 之後呼叫
 
         private double _originalDuration;
         private double _splitPointSeconds;

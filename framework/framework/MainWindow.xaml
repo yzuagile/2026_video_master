@@ -83,9 +83,11 @@
 
         <!-- ===== 工具列 ===== -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#333333" VerticalAlignment="Center">
-            <Button Name="BtnImport" Content="📁 匯入影片" Margin="15,0,5,0" Padding="15,5" 
+            <Button Name="BtnImport" Content="📁 匯入影片" Margin="15,0,5,0" Padding="15,5"
                     Background="White" Click="BtnImport_Click"/>
-            <Button Name="BtnExport" Content="🎬 輸出影片" Margin="5,0,0,0" Padding="15,5" 
+            <Button Name="BtnImportAudio" Content="🎵 匯入音訊" Margin="5,0,0,0" Padding="15,5"
+                    Background="#2E5A2E" Foreground="White" BorderBrush="{x:Null}" Click="BtnImportAudio_Click"/>
+            <Button Name="BtnExport" Content="🎬 輸出影片" Margin="5,0,0,0" Padding="15,5"
                     Background="#007ACC" Foreground="White" BorderBrush="{x:Null}" Click="BtnExport_Click"/>
             <Separator Margin="10,5" Background="#555"/>
             <Button Name="BtnPreviewSubtitle" Content="👁 預覽字卡" Margin="5,0,0,0" Padding="15,5"
@@ -394,7 +396,8 @@
                     <RadioButton Name="RadioSelect" IsChecked="True"
                                  Checked="ToolRadioButton_Checked" Tag="Select"
                                  Style="{StaticResource ToolButtonStyle}"
-                                 VerticalAlignment="Center">
+                                 VerticalAlignment="Center"
+                                 ToolTip="左鍵點擊選取單一元素；右鍵拖曳框選多個元素">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="↖" FontSize="17" Margin="0,0,5,0" VerticalAlignment="Center"/>
                             <StackPanel Orientation="Vertical" VerticalAlignment="Center">
@@ -469,7 +472,9 @@
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Background="Transparent"
                                 MouseDown="VideoTrackCanvas_MouseDown"
                                 MouseMove="TimelineArea_MouseMove"
-                                MouseLeave="TimelineArea_MouseLeave">
+                                MouseLeave="TimelineArea_MouseLeave"
+                                MouseUp="TimelineArea_MouseUp"
+                                ContextMenuOpening="TimelineArea_ContextMenuOpening">
 
                         <Grid Name="TimelineContentStack">
                             <StackPanel Orientation="Vertical">
@@ -556,24 +561,41 @@
                                         <ColumnDefinition Width="4*"/>
                                         <ColumnDefinition Width="207*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="🎵 音訊軌" Foreground="White" 
+                                    <TextBlock Text="🎵 音訊軌 1" Foreground="#AAFFAA"
                        VerticalAlignment="Center" HorizontalAlignment="Center"
                        FontSize="11"/>
-                                    <Canvas Grid.Column="1" Name="AudioTrackCanvas" 
-                    Background="#1A281E" HorizontalAlignment="Left" 
+                                    <Canvas Grid.Column="1" Name="AudioTrackCanvas"
+                    Background="#1A281E" HorizontalAlignment="Left"
+                    Grid.ColumnSpan="3"/>
+                                </Grid>
+
+                                <Grid Height="35" Margin="0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="4*"/>
+                                        <ColumnDefinition Width="207*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="🎵 音訊軌 2" Foreground="#FFCCAA"
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       FontSize="11"/>
+                                    <Canvas Grid.Column="1" Name="AudioTrackCanvas1"
+                    Background="#281E0A" HorizontalAlignment="Left"
                     Grid.ColumnSpan="3"/>
                                 </Grid>
 
                             </StackPanel>
 
+                            <Canvas Name="MarqueeCanvas" IsHitTestVisible="False" Panel.ZIndex="20"/>
+
                             <Canvas Name="PlayheadCanvas" IsHitTestVisible="False"
                                     Margin="80,0,0,0" Panel.ZIndex="10">
                                 <Line x:Name="PlayheadLine"
-                                      X1="0" Y1="0" X2="0" Y2="273"
+                                      X1="0" Y1="0" X2="0" Y2="308"
                                       Stroke="Red" StrokeThickness="2"
                                       Visibility="Collapsed"/>
                                 <Line x:Name="SnapIndicatorLine"
-                                      X1="0" Y1="0" X2="0" Y2="273"
+                                      X1="0" Y1="0" X2="0" Y2="308"
                                       Stroke="Yellow" StrokeThickness="1"
                                       StrokeDashArray="4,2"
                                       Visibility="Collapsed"/>

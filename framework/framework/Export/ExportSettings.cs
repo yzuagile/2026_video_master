@@ -2,6 +2,7 @@
 namespace framework.Export
 {
     public record VideoSegmentExportData(double TimelineStart, double InternalOffset, double Duration);
+    public record AudioSegmentExportData(double TimelineStart, double InternalOffset, double Duration);
     public enum VideoFormat
     {
         MP4,
@@ -43,5 +44,7 @@ namespace framework.Export
         public double DurationSeconds { get; init; }
         public string OutputPath { get; set; } = string.Empty;
         public List<VideoSegmentExportData> Segments { get; init; } = new();
+        public string? ExternalAudioPath { get; init; }
+        public List<AudioSegmentExportData> ExternalAudioSegments { get; init; } = new();
     }
 }
