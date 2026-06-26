@@ -389,7 +389,7 @@
                     <Button Name="BtnPlay" Content="▶ 播放" Margin="5" Padding="15,2" 
                             Background="#4CAF50" Foreground="White" BorderThickness="0" 
                             Cursor="Hand" Click="BtnPlay_Click"/>
-                    <Button Name="BtnPause" Content="⏸ 暫停" Margin="0,5,15,5" Padding="15,2" 
+                    <Button Name="BtnPause" Content="⏸ 暫停" Margin="5,5,15,5" Padding="15,2"
                             Background="#FF9800" Foreground="White" BorderThickness="0" 
                             Cursor="Hand" Click="BtnPause_Click"/>
 
@@ -431,9 +431,10 @@
                             </StackPanel>
                         </StackPanel>
                     </ToggleButton>
-                    <Button x:Name="BtnDelete" Content="✖ 刪除 (Del)" 
-                            Click="BtnDelete_Click" 
-                            Margin="10,5,5,5" Padding="10,0" 
+                    <Separator Margin="5,5,0,5" Background="#555"/>
+                    <Button x:Name="BtnDelete" Content="✖ 刪除 (Del)"
+                            Click="BtnDelete_Click"
+                            Margin="5,5,5,5" Padding="10,0"
                             Background="Transparent" Foreground="White" BorderThickness="0" 
                             Cursor="Hand"/>
                     <Button x:Name="BtnUndo" Content="↩ 撤銷 (Ctrl+Z)" 
@@ -522,7 +523,7 @@
                     Grid.ColumnSpan="3"/>
                                 </Grid>
 
-                                <Grid Height="40" Margin="0,2">
+                                <Grid Height="40" Margin="0,2,0,6">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="80"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -539,7 +540,7 @@
                     Grid.ColumnSpan="3"/>
                                 </Grid>
 
-                                <Grid Height="80" Margin="0,0">
+                                <Grid Height="80" Margin="0,2,0,6">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="80"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -554,7 +555,7 @@
                     Grid.ColumnSpan="3"/>
                                 </Grid>
 
-                                <Grid Height="35" Margin="0,0">
+                                <Grid Height="35" Margin="0,2">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="80"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -569,7 +570,7 @@
                     Grid.ColumnSpan="3"/>
                                 </Grid>
 
-                                <Grid Height="35" Margin="0,0">
+                                <Grid Height="35" Margin="0,2">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="80"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -591,11 +592,11 @@
                             <Canvas Name="PlayheadCanvas" IsHitTestVisible="False"
                                     Margin="80,0,0,0" Panel.ZIndex="10">
                                 <Line x:Name="PlayheadLine"
-                                      X1="0" Y1="0" X2="0" Y2="308"
+                                      X1="0" Y1="0" X2="0" Y2="340"
                                       Stroke="Red" StrokeThickness="2"
                                       Visibility="Collapsed"/>
                                 <Line x:Name="SnapIndicatorLine"
-                                      X1="0" Y1="0" X2="0" Y2="308"
+                                      X1="0" Y1="0" X2="0" Y2="340"
                                       Stroke="Yellow" StrokeThickness="1"
                                       StrokeDashArray="4,2"
                                       Visibility="Collapsed"/>
